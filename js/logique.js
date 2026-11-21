@@ -336,15 +336,15 @@ export function transitionDemandeAutorisee(role, de, vers) {
 // ---------------------------------------------------------------------------
 
 /**
- * Calcule la fête à montrer au frère.
- *   validations : liste des validations (avec leur date `le`)
+ * Calcule la fête à montrer à la personne aidée.
+ *   validations : ses validations (avec leur date `le`)
  *   vuJusqua    : date (en ms) de la dernière validation déjà fêtée, ou null
- *                 si l'appli n'a encore rien mémorisé sur cet appareil.
+ *                 si aucune fête n'a encore été montrée. Cette valeur est
+ *                 rangée dans sa fiche de membre, créée vide à son arrivée
+ *                 dans la famille : null veut donc dire « tout est à fêter ».
  * Renvoie { etoiles, nouvelles, vuJusqua } : `vuJusqua` est la nouvelle valeur
  * à mémoriser APRÈS avoir montré la fête, pour ne pas la refaire.
  *
- * Première ouverture (vuJusqua null) : pas de fête pour les validations
- * anciennes, on mémorise seulement où on en est.
  * Les validations dont la date serveur n'est pas encore connue sont ignorées :
  * elles seront fêtées quand elle arrivera.
  */
@@ -352,15 +352,13 @@ export function feteAMontrer(validations, vuJusqua) {
   const datees = validations
     .map((v) => ({ v, t: enMillis(v.le) }))
     .filter((x) => x.t != null);
-  const plusRecente = datees.reduce((m, x) => Math.max(m, x.t), -Infinity);
-  if (vuJusqua == null) {
-    return { etoiles: 0, nouvelles: [], vuJusqua: datees.length ? plusRecente : null };
-  }
-  const nouvelles = datees.filter((x) => x.t > vuJusqua).map((x) => x.v);
+  const depuis = vuJusqua ?? -Infinity;
+  const nouvelles = datees.filter((x) => x.t > depuis).map((x) => x.v);
+  const plusRecente = datees.reduce((m, x) => Math.max(m, x.t), depuis);
   return {
     etoiles: nouvelles.reduce((s, v) => s + entierPositif(v.etoiles), 0),
     nouvelles,
-    vuJusqua: Math.max(vuJusqua, plusRecente),
+    vuJusqua: Number.isFinite(plusRecente) ? plusRecente : null,
   };
 }
 

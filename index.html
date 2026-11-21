@@ -13,7 +13,7 @@
 
 <header class="top" id="haut" hidden>
   <div class="in demo">
-    <p class="demo-titre"><strong>Mode démo</strong> : rien n'est enregistré. <span id="demoJour"></span></p>
+    <p class="demo-titre"><strong>Mode démo</strong> : rien n'est enregistré. <span id="demoJour"></span> <a href="./">Quitter la démo</a></p>
     <div class="demo-ligne">
       <label for="demoQui">Voir l'appli comme</label>
       <select id="demoQui"></select>
@@ -25,8 +25,63 @@
 <main id="principal">
   <p id="chargement" class="empty">Chargement…</p>
 
-  <!-- Écran sans famille (démo vidée ; à l'étape 4 : connexion et création) -->
+  <!-- Démo vidée (« Supprimer toutes les données » en mode démo) -->
   <section id="e-vide" class="ecran" hidden></section>
+
+  <!-- =================== AVANT D'ENTRER DANS UNE FAMILLE =================== -->
+  <section id="e-config" class="ecran" hidden>
+    <h1>Mes missions</h1>
+    <p>L'appli n'est pas encore reliée à Firebase : la configuration est à compléter dans le fichier <code>js/firebase-config.js</code>.</p>
+    <p><a href="#demo">Voir la démo</a></p>
+  </section>
+
+  <section id="e-connexion" class="ecran" hidden>
+    <h1>Mes missions</h1>
+    <p class="intro">Connecte-toi pour retrouver ta famille.</p>
+    <button class="big" type="button" data-clic="connexionGoogle">Continuer avec Google</button>
+    <h2>Ou avec un lien par e-mail</h2>
+    <form id="formLien" novalidate>
+      <label for="lEmail">Ton adresse e-mail</label>
+      <input id="lEmail" type="email" maxlength="254" autocomplete="email" inputmode="email">
+      <p class="erreur" id="lErreur" role="alert"></p>
+      <button class="big" type="submit">Recevoir un lien de connexion</button>
+    </form>
+    <p class="aide" id="lEnvoye" role="status" hidden></p>
+    <p class="aide">Pas de mot de passe : la connexion reste ouverte sur cet appareil.</p>
+    <p class="aide"><a href="#demo">Voir la démo</a> (sans compte, rien n'est enregistré)</p>
+  </section>
+
+  <section id="e-lien" class="ecran" hidden>
+    <h1>Presque fini</h1>
+    <p>Pour terminer la connexion, écris l'adresse e-mail qui a reçu le lien.</p>
+    <form id="formLienConfirmer" novalidate>
+      <label for="lcEmail">Adresse e-mail</label>
+      <input id="lcEmail" type="email" maxlength="254" autocomplete="email" inputmode="email">
+      <p class="erreur" id="lcErreur" role="alert"></p>
+      <button class="big" type="submit">Me connecter</button>
+    </form>
+  </section>
+
+  <section id="e-accueil" class="ecran" hidden>
+    <h1>Bienvenue</h1>
+    <p class="aide" id="accCompte"></p>
+    <div id="accInvitations"></div>
+    <div id="accSansInvitation">
+      <p>Aucune invitation n'attend cette adresse.</p>
+      <p class="aide">Si quelqu'un de ta famille t'a invité(e), vérifie que tu t'es connecté(e) avec la bonne adresse e-mail. Sinon, tu peux créer une nouvelle famille : tu en seras le premier aidant.</p>
+      <button class="ghost" type="button" data-clic="montrerCreation">Créer une nouvelle famille</button>
+    </div>
+    <form id="formFamille" novalidate hidden>
+      <h2>Nouvelle famille</h2>
+      <label for="cNom">Nom de la famille</label>
+      <input id="cNom" maxlength="40" autocomplete="off" placeholder="Ex. : Famille Étoile">
+      <label for="cPrenom">Ton prénom (affiché dans l'appli)</label>
+      <input id="cPrenom" maxlength="30" autocomplete="off">
+      <p class="erreur" id="cErreur" role="alert"></p>
+      <button class="big" type="submit">Créer la famille</button>
+    </form>
+    <button class="ghost" type="button" data-clic="deconnecter">Se déconnecter</button>
+  </section>
 
   <!-- =================== PERSONNE AIDÉE =================== -->
   <section id="e-f-missions" class="ecran" hidden>
@@ -128,6 +183,13 @@
       <p class="erreur" id="iErreur" role="alert"></p>
       <button class="big" type="submit">Inviter</button>
     </form>
+
+    <div id="aTelephone" hidden>
+      <h2>Ce téléphone</h2>
+      <p class="aide" id="aCompte"></p>
+      <button class="ghost" type="button" data-clic="copierLien">Copier le lien de l'appli</button>
+      <button class="ghost" type="button" data-clic="deconnecter">Se déconnecter</button>
+    </div>
 
     <h2>Toutes les données</h2>
     <p class="aide">Supprime la famille, ses membres, les missions, les étoiles, les récompenses et l'historique. C'est définitif.</p>

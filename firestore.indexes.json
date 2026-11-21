@@ -5,7 +5,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "pour", "order": "ASCENDING" },
-        { "fieldPath": "le", "order": "ASCENDING" }
+        { "fieldPath": "le", "order": "DESCENDING" }
       ]
     }
   ],

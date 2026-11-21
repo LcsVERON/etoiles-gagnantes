@@ -1,23 +1,40 @@
-// js/app.js — point d'entrée : choisit le stockage, affiche le bon écran
-// selon le rôle, et relie les boutons aux actions.
+// js/app.js — point d'entrée : choisit le stockage (Firebase, ou démo avec
+// l'adresse #demo), affiche le bon écran selon la phase et le rôle, et relie
+// les boutons aux actions.
 
 import * as A from './actions.js';
 import * as L from './logique.js';
 import * as ui from './ui.js';
 import { html, remplir } from './html.js';
+import { messageErreur } from './erreurs.js';
 import { creerStockageDemo } from './donnees/demo.js';
+import * as Accueil from './vues/accueil.js';
 import * as Frere from './vues/frere.js';
 import * as Famille from './vues/famille.js';
 
 const $ = (id) => document.getElementById(id);
 
-// Étape 2 : seul le mode démo existe. À l'étape 4, le stockage Firebase sera
-// utilisé par défaut et le mode démo restera accessible avec l'adresse #demo.
-function choisirStockage() {
-  return creerStockageDemo();
+const MODE_DEMO = location.hash === '#demo';
+
+// Passer de la démo à l'appli (ou l'inverse) recharge la page : les deux
+// modes ne partagent rien.
+window.addEventListener('hashchange', () => location.reload());
+
+/** Le SDK Firebase n'est chargé que hors démo. */
+async function choisirStockage() {
+  if (MODE_DEMO) return creerStockageDemo();
+  const { creerStockageFirebase } = await import('./donnees/firebase.js');
+  return creerStockageFirebase();
 }
 
-const stockage = choisirStockage();
+let stockage;
+try {
+  stockage = await choisirStockage();
+} catch (e) {
+  console.error(e);
+  $('chargement').textContent = 'L\'appli n\'a pas pu démarrer. Recharge la page.';
+  throw e;
+}
 
 const app = {
   etat: null,
@@ -54,10 +71,16 @@ const app = {
     } catch (e) {
       if (e instanceof A.ErreurSaisie) return { ok: false, erreurs: e.erreurs };
       console.error(e);
-      ui.toast(e.message || 'Ça n\'a pas marché. Réessaie.');
+      ui.toast(messageErreur(e));
       return { ok: false };
     }
   },
+};
+
+// Erreurs signalées plus tard par le serveur (écriture refusée, etc.).
+stockage.surErreur = (e) => {
+  console.error(e);
+  ui.toast(messageErreur(e));
 };
 
 // ---------------------------------------------------------------------------
@@ -81,22 +104,39 @@ function memoriserFocus() {
   };
 }
 
+function cacherTout() {
+  document.querySelectorAll('.ecran').forEach((s) => { s.hidden = true; });
+  $('chargement').hidden = true;
+  $('barreNav').hidden = true;
+}
+
 function rendre() {
   const E = app.etat;
   if (!E) return;
   const refocus = memoriserFocus();
-  $('chargement').hidden = true;
-  document.querySelectorAll('.ecran').forEach((s) => { s.hidden = true; });
+  cacherTout();
   rendreBarreDemo(E);
+  const phase = E.phase || 'famille';
 
+  // Avant d'entrer dans une famille (Firebase) : connexion, accueil…
+  if (phase !== 'famille') {
+    document.body.classList.remove('vue-frere');
+    if (Accueil.PHASES.includes(phase)) {
+      $(`e-${phase}`).hidden = false;
+      Accueil.rendre(app);
+    } else {
+      $('chargement').hidden = false;
+    }
+    refocus?.();
+    return;
+  }
+
+  // Démo dont on a tout supprimé.
   if (!E.famille || !E.moi) {
     document.body.classList.remove('vue-frere');
-    $('barreNav').hidden = true;
     $('e-vide').hidden = false;
-    remplir($('e-vide'), stockage.mode === 'demo'
-      ? html`<h1>Plus rien ici</h1><p>Toutes les données de la démo ont été supprimées.</p>
-             <button class="big" type="button" data-clic="demoRecommencer">Recommencer la démo</button>`
-      : html`<p class="empty">Chargement…</p>`);
+    remplir($('e-vide'), html`<h1>Plus rien ici</h1><p>Toutes les données de la démo ont été supprimées.</p>
+      <button class="big" type="button" data-clic="demoRecommencer">Recommencer la démo</button>`);
     return;
   }
 
@@ -135,25 +175,42 @@ function rendreBarreDemo(E) {
 }
 
 // ---------------------------------------------------------------------------
-// Vérifications automatiques à chaque mise à jour des données
+// Écritures automatiques à chaque mise à jour des données
 // ---------------------------------------------------------------------------
 
-let remiseEnCours = false;
+const dansUneFamille = () => (app.etat?.phase || 'famille') === 'famille' && !!app.etat?.moi;
+
+/** Écriture automatique : en cas de refus, pas de message (et pas de boucle). */
+async function faireDiscretement(action, ...args) {
+  try {
+    const ops = action(app.etat, app.contexte(), ...args);
+    await stockage.executer(ops, { silencieux: true });
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+// Une mission dont la remise à zéro a été tentée n'est pas réessayée avant
+// 10 minutes (si le serveur la refuse, on évite de recommencer en boucle).
+const remisesTentees = new Map();
+const DELAI_REESSAI = 10 * 60 * 1000;
+
 /** Remet « à faire » les missions quotidiennes d'un jour passé. */
-async function verifierRemises() {
-  if (remiseEnCours || !app.etat?.moi) return;
-  const ops = A.remisesAZero(app.etat, app.contexte());
+function verifierRemises() {
+  if (!dansUneFamille()) return;
+  const maintenant = Date.now();
+  const ops = A.remisesAZero(app.etat, app.contexte())
+    .filter((o) => maintenant - (remisesTentees.get(o.id) || 0) > DELAI_REESSAI);
   if (!ops.length) return;
-  remiseEnCours = true;
-  try { await stockage.executer(ops); } catch (e) { console.error(e); }
-  remiseEnCours = false;
+  ops.forEach((o) => remisesTentees.set(o.id, maintenant));
+  faireDiscretement(() => ops);
 }
 
 let feteEnCours = false;
 /** Montre la fête « +N étoiles » une seule fois par validation. */
 async function verifierFete() {
   const E = app.etat;
-  if (feteEnCours || E?.moi?.role !== 'frere') return;
+  if (feteEnCours || !dansUneFamille() || E.moi.role !== 'frere') return;
   const vu = Number.isInteger(E.moi.fetesVuesJusqua) ? E.moi.fetesVuesJusqua : null;
   const f = L.feteAMontrer(L.donneesAide(E, E.moi.id).validations, vu);
   if (f.vuJusqua == null || f.vuJusqua === vu) return;
@@ -166,7 +223,7 @@ async function verifierFete() {
     });
   }
   // On mémorise seulement si c'est toujours la même personne (mode démo).
-  if (app.etat?.moi?.id === uid) await app.faire(A.marquerFeteVue, f.vuJusqua);
+  if (app.etat?.moi?.id === uid) await faireDiscretement(A.marquerFeteVue, Math.round(f.vuJusqua));
   feteEnCours = false;
 }
 
@@ -185,13 +242,14 @@ const CLICS_COMMUNS = {
     ui.toast('La personne a rejoint la famille. Choisis-la en haut pour voir son appli.');
   },
   demoRecommencer: () => { app.ecran = null; stockage.demo.recommencer(); },
+  ...Accueil.CLICS,
 };
 
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-clic]');
   if (!el || el.disabled) return;
   const nom = el.dataset.clic;
-  const fn = CLICS_COMMUNS[nom] || (app.etat?.moi ? vueDe(app.etat).CLICS[nom] : null);
+  const fn = CLICS_COMMUNS[nom] || (dansUneFamille() ? vueDe(app.etat).CLICS[nom] : null);
   if (!fn) return;
   e.preventDefault();
   fn(app, el);
@@ -204,9 +262,13 @@ $('demoQui').addEventListener('change', (e) => {
   window.scrollTo(0, 0);
 });
 
+Accueil.initialiser(app);
 Famille.initialiser(app);
 
+let dernierUid = null;
 stockage.abonner((etat) => {
+  // Changement de compte : on repart du premier écran.
+  if (etat.moi?.id !== dernierUid) { app.ecran = null; app.param = null; dernierUid = etat.moi?.id ?? null; }
   app.etat = etat;
   rendre();
   verifierRemises();

@@ -28,10 +28,25 @@ export function reference(fs, db, familleId, { col, id }) {
     : fs.doc(db, 'families', familleId, col, id);
 }
 
-/** Découpe les écritures en lots, dans l'ordre (voir retirerMembre, supprimerFamille). */
+/** Vrai si les écritures suppriment le document de la famille (suppression complète). */
+export function supprimeLaFamille(ops) {
+  return ops.some((o) => o.col === null && o.op === 'supprimer');
+}
+
+/**
+ * Découpe les écritures en lots, dans l'ordre (voir retirerMembre,
+ * supprimerFamille). Pour une suppression complète, le marquage « en
+ * suppression » part SEUL en premier : les règles n'autorisent à effacer la
+ * famille que si elle était déjà marquée avant le lot.
+ */
 export function decouper(ops, taille = TAILLE_LOT) {
   const lots = [];
-  for (let i = 0; i < ops.length; i += taille) lots.push(ops.slice(i, i + taille));
+  let reste = ops;
+  if (supprimeLaFamille(ops) && ops[0]?.col === null && ops[0].op === 'modifier') {
+    lots.push([ops[0]]);
+    reste = ops.slice(1);
+  }
+  for (let i = 0; i < reste.length; i += taille) lots.push(reste.slice(i, i + taille));
   return lots;
 }
 

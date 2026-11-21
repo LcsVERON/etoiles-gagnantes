@@ -5,6 +5,7 @@ import * as A from '../js/actions.js';
 import * as L from '../js/logique.js';
 import { appliquer, baseVide, etatDe } from '../js/donnees/memoire.js';
 import { CLES_ICONES, LIBELLES } from '../js/icones.js';
+import { decouper } from '../js/donnees/lots.js';
 
 const JOUR = 24 * 3600 * 1000;
 const T0 = new Date(2026, 10, 21, 10, 0).getTime();
@@ -360,6 +361,22 @@ describe('base en mémoire', () => {
   test('HORODATAGE est remplacé par la date', () => {
     const b = appliquer(baseVide(), [{ op: 'creer', col: 'events', id: 'e', donnees: { le: A.HORODATAGE } }], 42);
     assert.equal(b.events.e.le, 42);
+  });
+});
+
+describe('découpage en lots', () => {
+  test('suppression complète : le marquage part seul, puis le reste dans l\'ordre', () => {
+    const w = monde();
+    const ops = A.supprimerFamille(w.etat('aid'), { moi: w.etat('aid').moi, nouvelId: () => 'e' });
+    const lots = decouper(ops, 4);
+    assert.deepEqual(lots[0], [ops[0]]);
+    assert.deepEqual(lots.flat(), ops);
+    assert.ok(lots.slice(1).every((l) => l.length <= 4));
+  });
+
+  test('autres écritures : simple découpage', () => {
+    const ops = Array.from({ length: 5 }, (_, i) => ({ op: 'supprimer', col: 'events', id: `e${i}` }));
+    assert.deepEqual(decouper(ops, 2).map((l) => l.length), [2, 2, 1]);
   });
 });
 

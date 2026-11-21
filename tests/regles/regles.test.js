@@ -134,6 +134,19 @@ describe('famille : modification et suppression', () => {
     await assertFails(deleteDoc(ref('x', 'events', 'e0')));
   });
 
+  test('autorisé : un aidant supprime toutes les données (découpage normal de l\'appli)', async () => {
+    await assertSucceeds(envoyer('aid', await ops('aid', A.supprimerFamille)));
+    assert.equal(await lire('families', F), null);
+    assert.equal(await lire('families', F, 'members', 'aid'), null);
+    assert.equal(await lire('families', F, 'validations', 'v0'), null);
+  });
+
+  test('refusé : marquer et supprimer la famille dans le même lot', async () => {
+    const liste = await ops('aid', A.supprimerFamille);
+    const { preparerLot } = await import('../../js/donnees/lots.js');
+    await assertFails(preparerLot(fs, db('aid'), F, liste).commit());
+  });
+
   test('autorisé : un aidant supprime toutes les données (en plusieurs lots)', async () => {
     const liste = await ops('aid', A.supprimerFamille);
     // lots de 5 écritures pour vérifier que l'ordre suffit d'un lot à l'autre

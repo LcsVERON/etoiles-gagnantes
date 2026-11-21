@@ -262,9 +262,11 @@ describe('récompenses et demandes', () => {
 describe('fête « +N étoiles »', () => {
   const v = (id, j, etoiles) => ({ id, etoiles, le: le(j) });
 
-  test('première ouverture : pas de fête, on mémorise la plus récente', () => {
+  test('rien de mémorisé (arrivée dans la famille) : tout est fêté', () => {
     const r = L.feteAMontrer([v('a', 10, 2), v('b', 12, 3)], null);
-    assert.deepEqual(r, { etoiles: 0, nouvelles: [], vuJusqua: le(12).getTime() });
+    assert.equal(r.etoiles, 5);
+    assert.equal(r.nouvelles.length, 2);
+    assert.equal(r.vuJusqua, le(12).getTime());
     assert.deepEqual(L.feteAMontrer([], null), { etoiles: 0, nouvelles: [], vuJusqua: null });
   });
 
@@ -288,6 +290,7 @@ describe('fête « +N étoiles »', () => {
     const r = L.feteAMontrer([{ id: 'x', etoiles: 4, le: null }], le(1).getTime());
     assert.equal(r.etoiles, 0);
     assert.equal(r.vuJusqua, le(1).getTime());
+    assert.equal(L.feteAMontrer([{ id: 'x', etoiles: 4, le: null }], null).vuJusqua, null);
   });
 });
 

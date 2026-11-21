@@ -12,3 +12,6 @@ ui-debug.log*
 # Fichiers destinés à Claude
 .claude/
 CLAUDE.md
+
+# Données des émulateurs (sauvegardées entre deux lancements)
+.emulateurs/

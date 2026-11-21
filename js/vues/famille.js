@@ -206,6 +206,11 @@ function ecranFamille(E, app) {
     : html`<p class="empty">Personne pour le moment. Invite la personne aidée ci-dessous.</p>`);
 
   const demo = app.stockage.mode === 'demo';
+  $('aTelephone').hidden = demo;
+  if (!demo) {
+    const email = E.utilisateur?.email;
+    $('aCompte').textContent = email ? `Connecté(e) avec ${email}.` : '';
+  }
   remplir($('aInvitations'), E.invitations.length ? E.invitations.map((i) => html`
     <div class="row liste"><div><b>${i.prenom}</b><span class="info">${i.id} · ${i.role === 'aidant' ? 'aidant' : 'personne aidée'}</span></div>
       <div class="acts"><button class="no" type="button" data-clic="annulerInvitation" data-id="${i.id}">Annuler</button>
@@ -215,13 +220,16 @@ function ecranFamille(E, app) {
 
 async function envoyerInvitation(app) {
   const role = document.querySelector('input[name=iRole]:checked')?.value;
+  const prenomInvite = $('iPrenom').value.trim();
   const r = await app.faire(A.inviter, { prenom: $('iPrenom').value, email: $('iEmail').value, role });
   afficherErreurs('iErreur', r, { prenom: 'iPrenom', email: 'iEmail' });
   if (!r.ok) return;
   $('iPrenom').value = '';
   $('iEmail').value = '';
   document.querySelectorAll('input[name=iRole]').forEach((x) => { x.checked = false; });
-  app.ui.toast('Invitation enregistrée.');
+  app.ui.toast(app.stockage.mode === 'demo'
+    ? 'Invitation enregistrée.'
+    : `Invitation enregistrée. ${prenomInvite} doit ouvrir l'appli et se connecter avec cette adresse.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -263,7 +271,20 @@ export const CLICS = {
     const r = await app.faire(A.donnerRecompense, el.dataset.id);
     if (r.ok) app.ui.toast('C\'est noté !');
   },
-  plusHistorique: (app) => { nbHistorique += PAS_HISTORIQUE; app.rafraichir(); },
+  plusHistorique: (app) => {
+    nbHistorique += PAS_HISTORIQUE;
+    app.stockage.historique?.(nbHistorique + 1); // +1 : pour savoir s'il en reste
+    app.rafraichir();
+  },
+  copierLien: async (app) => {
+    const lien = location.origin + location.pathname;
+    try {
+      await navigator.clipboard.writeText(lien);
+      app.ui.toast('Lien copié. Envoie-le à la personne invitée.');
+    } catch {
+      app.ui.toast(`Lien de l'appli : ${lien}`);
+    }
+  },
 
   nPour: (app, el) => {
     const id = el.dataset.id;
@@ -320,6 +341,12 @@ export const CLICS = {
       texte: 'La famille, ses membres, les missions, les étoiles, les récompenses et l\'historique seront supprimés pour tout le monde. On ne pourra pas revenir en arrière.',
       oui: 'Oui, tout supprimer', danger: true,
     });
-    if (ok) await app.faire(A.supprimerFamille);
+    if (!ok) return;
+    if (app.stockage.mode !== 'demo' && navigator.onLine === false) {
+      app.ui.toast('Il faut être connecté à Internet pour tout supprimer.');
+      return;
+    }
+    const r = await app.faire(A.supprimerFamille);
+    if (r.ok && app.stockage.mode !== 'demo') app.ui.toast('Toutes les données de la famille sont supprimées.');
   },
 };

@@ -11,7 +11,8 @@
     "test": "node --test tests/*.test.js",
     "test:regles": "firebase emulators:exec --only firestore --project demo-etoiles \"node --test tests/regles/*.test.js\"",
     "test:tout": "npm test && npm run test:regles",
-    "emulateurs": "firebase emulators:start --project demo-etoiles"
+    "emulateurs": "firebase emulators:start --project demo-etoiles --import ./.emulateurs --export-on-exit ./.emulateurs",
+    "copier-firebase": "node outils/copier-firebase.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "6.0.0",
