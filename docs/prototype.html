@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mes missions</title>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: encourageant, très peu de mots, jamais de reproche
+   IDEA: une carte de fidélité qu'on remplit d'étoiles, puis qu'on échange
+   PICTURE: la jauge d'étoiles vers la récompense choisie, en grand, en haut
+   COLOUR and TYPE: blanc, bleu nuit pour agir, jaune soleil pour les étoiles ; Atkinson Hyperlegible
+   LAYOUT: une colonne de téléphone ; onglets en bas ; bascule de vue en haut (prototype) */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#12151a);--card:light-dark(#f1f4f9,#1d222a);--line:light-dark(#dfe5ee,#2c333d);--ink:light-dark(#10151c,#f2f5f8);--soft:light-dark(#4d5664,#b6bfcb);--act:light-dark(#1d3f9e,#6f95ff);--star:#f5b301;--starBg:light-dark(#fff6d6,#3a3010);--ok:light-dark(#11743a,#4fd07a);--okBg:light-dark(#e5f6eb,#13301e)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:19px/1.4 "Atkinson Hyperlegible",Verdana,sans-serif;overflow-x:clip}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 14px}
+.top .in{max-width:560px;margin:0 auto;display:flex;gap:8px;align-items:center}
+.switch{display:flex;flex:1;background:var(--card);border-radius:14px;padding:4px}
+.switch button{flex:1;min-height:44px;border:0;border-radius:10px;background:transparent;color:var(--soft);font:700 16px inherit;cursor:pointer}
+.switch button.on{background:var(--act);color:#fff}
+.proto{font-size:13px;color:var(--soft);text-align:center;margin:6px 0 0}
+main{max-width:560px;margin:0 auto;padding:14px 14px 120px}
+h1{font-size:32px;line-height:1.1;margin:6px 0 12px}
+h2{font-size:22px;margin:22px 0 10px}
+.hide{display:none!important}
+button{font-family:inherit}
+button:focus-visible{outline:4px solid var(--act);outline-offset:3px}
+/* jauge */
+.goal{background:var(--starBg);border-radius:24px;padding:16px;display:grid;grid-template-columns:84px minmax(0,1fr);gap:14px;align-items:center}
+.goal .ic{width:84px;height:84px;border-radius:20px;background:var(--bg);display:grid;place-items:center}
+.goal .ic svg{width:60px;height:60px}
+.goal b{font-size:24px;display:block;line-height:1.15}
+.goal small{font-size:18px;color:var(--soft)}
+.stars{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.stars svg{width:26px;height:26px}
+.total{display:flex;align-items:center;justify-content:center;gap:10px;font-size:28px;font-weight:700;margin:14px 0 4px}
+.total svg{width:36px;height:36px}
+/* cartes tâches */
+.task{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;text-align:left;background:var(--card);border:0;border-radius:20px;padding:12px;margin-bottom:10px;color:var(--ink);cursor:pointer;font-size:21px;font-weight:700}
+.task .ic{width:64px;height:64px;border-radius:16px;background:var(--bg);display:grid;place-items:center}
+.task .ic svg{width:44px;height:44px}
+.pts{display:inline-flex;align-items:center;gap:4px;background:var(--starBg);border-radius:12px;padding:6px 10px;font-size:20px;font-weight:700;white-space:nowrap}
+.pts svg{width:22px;height:22px}
+.tag{display:block;font-size:16px;font-weight:400;color:var(--soft);margin-top:2px}
+.task.wait{opacity:.75}
+.empty{color:var(--soft);text-align:center;padding:18px;background:var(--card);border-radius:18px}
+/* détail */
+.step{display:flex;gap:14px;align-items:center;width:100%;text-align:left;min-height:72px;border:3px solid var(--line);background:var(--bg);color:var(--ink);border-radius:18px;padding:10px 14px;margin-bottom:10px;font-size:22px;cursor:pointer}
+.step .box{flex:none;width:40px;height:40px;border-radius:10px;border:3px solid var(--soft);display:grid;place-items:center;font-size:26px;font-weight:700;color:#fff}
+.step.done{border-color:var(--ok);background:var(--okBg)}
+.step.done .box{background:var(--ok);border-color:var(--ok)}
+.step.done span:last-child{text-decoration:line-through;color:var(--soft)}
+.big{display:block;width:100%;min-height:72px;border:0;border-radius:20px;background:var(--act);color:#fff;font:700 26px/1.1 inherit;cursor:pointer;margin-top:8px}
+.big:disabled{opacity:.35}
+.ghost{display:block;width:100%;min-height:56px;border:3px solid var(--line);border-radius:16px;background:transparent;color:var(--ink);font:700 20px inherit;cursor:pointer;margin-top:10px}
+.hero{text-align:center;padding:10px 0}
+.hero .ic{width:110px;height:110px;margin:0 auto 6px;border-radius:26px;background:var(--card);display:grid;place-items:center}
+.hero .ic svg{width:78px;height:78px}
+/* récompenses */
+.rew{background:var(--card);border-radius:20px;padding:12px;margin-bottom:10px;display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center}
+.rew .ic{width:64px;height:64px;border-radius:16px;background:var(--bg);display:grid;place-items:center}
+.rew .ic svg{width:44px;height:44px}
+.rew b{font-size:21px}
+.meter{height:14px;border-radius:7px;background:var(--bg);overflow:hidden;margin:6px 0}
+.meter i{display:block;height:100%;background:var(--star);border-radius:7px}
+.rew button{grid-column:1/-1;min-height:56px;border:0;border-radius:14px;background:var(--act);color:#fff;font:700 20px inherit;cursor:pointer}
+.rew button.sel{background:transparent;border:3px solid var(--act);color:var(--act)}
+.rew .state{grid-column:1/-1;text-align:center;font-weight:700;color:var(--ok)}
+/* nav bas */
+.nav{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:5}
+.nav .in{max-width:560px;margin:0 auto;display:flex;gap:6px}
+.nav button{flex:1;min-height:60px;border:0;border-radius:14px;background:transparent;color:var(--soft);font:700 16px/1.1 inherit;cursor:pointer;position:relative}
+.nav button.on{background:var(--card);color:var(--act)}
+.nav .dot{position:absolute;top:6px;right:calc(50% - 30px);min-width:22px;height:22px;border-radius:11px;background:#d23b3b;color:#fff;font-size:13px;display:grid;place-items:center;padding:0 5px}
+/* aidant */
+.row{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:center;background:var(--card);border-radius:18px;padding:12px;margin-bottom:10px}
+.row .ic{width:52px;height:52px;border-radius:14px;background:var(--bg);display:grid;place-items:center}
+.row .ic svg{width:36px;height:36px}
+.row .acts{grid-column:1/-1;display:flex;gap:8px}
+.row .acts button{flex:1;min-height:50px;border-radius:12px;border:0;font:700 17px inherit;cursor:pointer}
+.yes{background:var(--ok);color:#fff}
+.no{background:transparent;border:2px solid var(--line)!important;color:var(--ink)}
+label{display:block;font-weight:700;font-size:17px;margin:16px 0 6px}
+input,textarea{width:100%;font:17px inherit;padding:12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
+textarea{min-height:110px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{min-height:48px;min-width:48px;padding:0 12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font:700 17px inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chips button svg{width:30px;height:30px}
+.chips button.on{border-color:var(--act);background:var(--card);outline:2px solid var(--act)}
+.hist{font-size:16px;color:var(--soft);border-left:3px solid var(--line);padding:2px 0 2px 10px;margin:6px 0}
+/* toast & fête */
+.toast{position:fixed;left:50%;top:76px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:14px 18px;border-radius:16px;font-weight:700;z-index:20;max-width:92vw;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.party{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:20px}
+.party .box{background:var(--bg);border-radius:28px;padding:26px 20px;text-align:center;max-width:420px;width:100%}
+.party .box svg{width:90px;height:90px}
+.party h1{font-size:40px;margin:8px 0}
+@media (prefers-reduced-motion:no-preference){.party .box{animation:pop .4s ease-out}@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}}
+</style>
+</head>
+<body>
+<div class="top"><div class="in"><div class="switch"><button id="swF" class="on">Vue de ton frère</button><button id="swA">Vue famille</button></div></div>
+<p class="proto">Prototype : les deux vues sont sur le même écran pour tester. Rien n'est enregistré.</p></div>
+
+<main>
+  <!-- ======= FRÈRE ======= -->
+  <section id="F">
+    <div id="fHome">
+      <div class="goal" id="goal"></div>
+      <h2>Mes missions</h2>
+      <div id="fTasks"></div>
+    </div>
+    <div id="fTask" class="hide"></div>
+    <div id="fRew" class="hide">
+      <h1>Mes récompenses</h1>
+      <div class="total" id="fTotal"></div>
+      <p style="text-align:center;color:var(--soft);margin:0 0 14px">Choisis ce que tu veux gagner.</p>
+      <div id="fRewList"></div>
+    </div>
+  </section>
+
+  <!-- ======= AIDANT ======= -->
+  <section id="A" class="hide">
+    <div id="aCheck">
+      <h1>À valider</h1>
+      <div id="aPending"></div>
+      <h2>Récompenses demandées</h2>
+      <div id="aAsked"></div>
+      <h2>Ce qui s'est passé</h2>
+      <div id="aHist"></div>
+    </div>
+    <div id="aNew" class="hide">
+      <h1>Nouvelle mission</h1>
+      <label for="nT">Titre (court)</label><input id="nT" placeholder="Ex. : Arroser les plantes">
+      <label>Image</label><div class="chips" id="nI"></div>
+      <label>Étoiles gagnées</label><div class="chips" id="nP"></div>
+      <label for="nS">Étapes (une par ligne, facultatif)</label><textarea id="nS" placeholder="Remplir l'arrosoir&#10;Arroser chaque plante&#10;Ranger l'arrosoir"></textarea>
+      <button class="big" id="nGo">Envoyer à ton frère</button>
+    </div>
+    <div id="aRew" class="hide">
+      <h1>Récompenses</h1>
+      <div id="aRewList"></div>
+      <h2>Ajouter une récompense</h2>
+      <label for="rT">Nom</label><input id="rT" placeholder="Ex. : Bowling">
+      <label>Image</label><div class="chips" id="rI"></div>
+      <label for="rC">Prix en étoiles</label><input id="rC" type="number" min="1" max="99" value="12" inputmode="numeric">
+      <button class="big" id="rGo">Ajouter</button>
+    </div>
+  </section>
+</main>
+
+<nav class="nav"><div class="in" id="nav"></div></nav>
+
+<script>
+{
+const $=id=>document.getElementById(id);
+const STAR='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z" fill="#f5b301" stroke="#c98d00" stroke-width="1"/></svg>';
+const STAR0='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z" fill="none" stroke="#c9b26a" stroke-width="1.6"/></svg>';
+// icônes simples
+const I={
+ chambre:'<rect x="6" y="26" width="52" height="22" rx="4" fill="#5b7fd6"/><rect x="10" y="16" width="20" height="14" rx="4" fill="#e8eefc"/><rect x="6" y="46" width="6" height="10" fill="#3c5aa8"/><rect x="52" y="46" width="6" height="10" fill="#3c5aa8"/>',
+ poubelle:'<rect x="16" y="18" width="32" height="38" rx="4" fill="#3f9a5c"/><rect x="12" y="12" width="40" height="7" rx="3" fill="#2d7445"/><rect x="27" y="7" width="10" height="6" rx="2" fill="#2d7445"/><path d="M25 26v22M32 26v22M39 26v22" stroke="#cfe9d8" stroke-width="3"/>',
+ marche:'<path d="M14 40c6-2 10-10 12-18 6 4 14 6 22 6 4 0 6 4 6 8v6c0 3-2 4-5 4H14c-4 0-5-5 0-6z" fill="#e2603d"/><rect x="10" y="46" width="46" height="6" rx="3" fill="#33363b"/>',
+ vaisselle:'<circle cx="28" cy="34" r="20" fill="#e8eefc" stroke="#9aa8c4" stroke-width="3"/><circle cx="28" cy="34" r="11" fill="none" stroke="#9aa8c4" stroke-width="2"/><rect x="51" y="12" width="4" height="44" rx="2" fill="#9aa8c4"/>',
+ courses:'<path d="M8 14h8l6 28h26l6-20H19" fill="none" stroke="#1d3f9e" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><circle cx="26" cy="51" r="4" fill="#1d3f9e"/><circle cx="46" cy="51" r="4" fill="#1d3f9e"/>',
+ lit:'<rect x="6" y="30" width="52" height="14" rx="3" fill="#9b6bd6"/><rect x="8" y="22" width="16" height="10" rx="3" fill="#ece2fa"/><rect x="6" y="42" width="5" height="10" fill="#6e45a8"/><rect x="53" y="42" width="5" height="10" fill="#6e45a8"/>',
+ plante:'<path d="M20 38h24l-4 18H24z" fill="#c2683a"/><path d="M32 38V18M32 26c-8 0-12-6-12-12 8 0 12 6 12 12zM32 22c6 0 10-5 10-10-7 0-10 5-10 10z" fill="#3f9a5c" stroke="#3f9a5c" stroke-width="2"/>',
+ burger:'<path d="M10 30c0-12 10-18 22-18s22 6 22 18z" fill="#e0a040"/><rect x="8" y="32" width="48" height="6" rx="3" fill="#4caf50"/><rect x="8" y="38" width="48" height="7" rx="3" fill="#7a3e1d"/><path d="M10 47h44c0 5-4 8-10 8H20c-6 0-10-3-10-8z" fill="#e0a040"/>',
+ cinema:'<rect x="8" y="18" width="48" height="30" rx="4" fill="#d23b3b"/><circle cx="20" cy="33" r="5" fill="#fff"/><path d="M32 26l14 7-14 7z" fill="#fff"/>',
+ sortie:'<path d="M32 8l16 26H16z" fill="#2f8a4f"/><path d="M32 20l18 28H14z" fill="#3fa862"/><rect x="29" y="46" width="6" height="10" fill="#7a4a24"/>',
+ jeu:'<rect x="6" y="22" width="52" height="24" rx="12" fill="#33363b"/><path d="M18 29v10M13 34h10" stroke="#fff" stroke-width="3"/><circle cx="42" cy="31" r="3" fill="#f5b301"/><circle cx="48" cy="37" r="3" fill="#e2603d"/>',
+ cadeau:'<rect x="10" y="26" width="44" height="28" rx="3" fill="#e2603d"/><rect x="8" y="20" width="48" height="9" rx="3" fill="#f07b57"/><rect x="29" y="20" width="6" height="34" fill="#f5b301"/><path d="M32 20c-4-8-14-8-12-2 1 3 8 2 12 2zM32 20c4-8 14-8 12-2-1 3-8 2-12 2z" fill="#f5b301"/>'
+};
+const ic=k=>`<svg viewBox="0 0 64 64" aria-hidden="true">${I[k]||I.cadeau}</svg>`;
+const TASK_IC=['chambre','poubelle','marche','vaisselle','courses','lit','plante'];
+const REW_IC=['burger','cinema','sortie','jeu','cadeau'];
+
+// ---- données d'exemple ----
+let uid=10;
+const S={
+ tasks:[
+  {id:1,t:'Ranger ta chambre',i:'chambre',p:3,steps:['Les vêtements sales dans le panier','Les vêtements propres dans l\'armoire','Les objets sur l\'étagère','Faire le lit'],st:'todo',done:[]},
+  {id:2,t:'Sortir les poubelles',i:'poubelle',p:1,steps:['Fermer le sac','Descendre le sac','Le mettre dans la grande poubelle'],st:'todo',done:[]},
+  {id:3,t:'Marcher 30 minutes',i:'marche',p:3,steps:['Mettre les chaussures','Marcher jusqu\'au parc','Faire le tour du parc','Rentrer'],st:'todo',done:[]},
+  {id:4,t:'Vider le lave-vaisselle',i:'vaisselle',p:2,steps:['Les assiettes dans le placard','Les verres dans le placard','Les couverts dans le tiroir'],st:'wait',done:[0,1,2]}
+ ],
+ rewards:[{id:5,t:'McDo',i:'burger',c:10},{id:6,t:'Cinéma',i:'cinema',c:15},{id:7,t:'Sortie au choix',i:'sortie',c:20}],
+ goal:5, earned:7, spent:0, asked:[], hist:['Hier : « Mettre la table » validée, +2 étoiles','Hier : « Marcher 30 minutes » validée, +3 étoiles']
+};
+const pts=()=>S.earned-S.spent;
+let who='F',tab='home',openTask=null,newIc='plante',newP=2,rIc='jeu';
+
+function toast(m){const d=document.createElement('div');d.className='toast';d.textContent=m;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+function party(icon,title,line){const d=document.createElement('div');d.className='party';d.innerHTML=`<div class="box">${icon}<h1>${title}</h1><p style="font-size:22px;margin:0 0 10px">${line}</p><button class="big">Super !</button></div>`;document.body.appendChild(d);d.querySelector('button').onclick=()=>d.remove()}
+
+// ---- FRÈRE ----
+function fHome(){
+  const g=S.rewards.find(r=>r.id===S.goal)||S.rewards[0],p=pts(),miss=Math.max(0,g.c-p);
+  $('goal').innerHTML=`<div class="ic">${ic(g.i)}</div><div><b>${g.t}</b><small>${miss?`Encore <b style="display:inline;font-size:20px">${miss}</b> étoile${miss>1?'s':''}`:'Tu peux l\'avoir !'}</small>
+   <div class="stars" aria-label="${Math.min(p,g.c)} étoiles sur ${g.c}">${Array.from({length:g.c},(_,k)=>k<p?STAR:STAR0).join('')}</div></div>`;
+  const todo=S.tasks.filter(t=>t.st!=='ok');
+  $('fTasks').innerHTML=todo.length?todo.map(t=>`<button class="task ${t.st==='wait'?'wait':''}" data-open="${t.id}"><span class="ic">${ic(t.i)}</span><span>${t.t}${t.st==='wait'?'<span class="tag">Fini ! On vérifie.</span>':''}</span><span class="pts">+${t.p} ${STAR}</span></button>`).join(''):'<p class="empty">Pas de mission pour le moment.</p>';
+}
+function fTask(){
+  const t=S.tasks.find(x=>x.id===openTask);if(!t){show('home');return}
+  const all=t.steps.length?t.done.length===t.steps.length:true,wait=t.st==='wait';
+  $('fTask').innerHTML=`<div class="hero"><div class="ic">${ic(t.i)}</div><h1>${t.t}</h1><span class="pts">Tu gagnes ${t.p} ${STAR}</span></div>
+   ${t.steps.map((s,k)=>`<button class="step ${t.done.includes(k)?'done':''}" data-step="${k}" ${wait?'disabled':''}><span class="box">${t.done.includes(k)?'✓':''}</span><span>${s}</span></button>`).join('')}
+   ${wait?'<p class="empty">Bravo ! Quelqu\'un de la famille va vérifier.</p>':`<button class="big" id="fin" ${all?'':'disabled'}>J'ai fini</button>`}
+   <button class="ghost" id="back">← Retour</button>`;
+}
+function fRew(){
+  const p=pts();
+  $('fTotal').innerHTML=`${STAR} J'ai ${p} étoile${p>1?'s':''}`;
+  $('fRewList').innerHTML=S.rewards.map(r=>{const ask=S.asked.find(a=>a.r===r.id);
+    return `<div class="rew"><div class="ic">${ic(r.i)}</div><div><b>${r.t}</b><div class="meter"><i style="width:${Math.min(100,p/r.c*100)}%"></i></div><span class="pts">${r.c} ${STAR}</span></div>
+    ${ask?'<p class="state">Demandé ! La famille prépare ta récompense.</p>':p>=r.c?`<button data-ask="${r.id}">Je veux ${r.t}</button>`:`<button class="${S.goal===r.id?'sel':''}" data-goal="${r.id}">${S.goal===r.id?'C\'est mon objectif':'Choisir comme objectif'}</button>`}</div>`}).join('');
+}
+
+// ---- AIDANT ----
+function aCheck(){
+  const w=S.tasks.filter(t=>t.st==='wait');
+  $('aPending').innerHTML=w.length?w.map(t=>`<div class="row"><div class="ic">${ic(t.i)}</div><div><b>${t.t}</b><br><span class="pts">+${t.p} ${STAR}</span></div><div class="acts"><button class="yes" data-ok="${t.id}">C'est fait ✓</button><button class="no" data-notyet="${t.id}">Pas encore</button></div></div>`).join(''):'<p class="empty">Rien à valider.</p>';
+  $('aAsked').innerHTML=S.asked.length?S.asked.map(a=>{const r=S.rewards.find(x=>x.id===a.r);return `<div class="row"><div class="ic">${ic(r.i)}</div><div><b>${r.t}</b><br><span style="color:var(--soft);font-size:16px">${r.c} étoiles</span></div><div class="acts"><button class="yes" data-given="${r.id}">Récompense donnée ✓</button></div></div>`}).join(''):'<p class="empty">Aucune demande.</p>';
+  $('aHist').innerHTML=S.hist.slice(0,8).map(h=>`<p class="hist">${h}</p>`).join('');
+}
+function aNew(){
+  $('nI').innerHTML=TASK_IC.map(k=>`<button data-ni="${k}" class="${k===newIc?'on':''}" aria-label="${k}">${ic(k)}</button>`).join('');
+  $('nP').innerHTML=[1,2,3,4,5].map(n=>`<button data-np="${n}" class="${n===newP?'on':''}">${n} ${STAR}</button>`).join('');
+}
+function aRew(){
+  $('aRewList').innerHTML=S.rewards.map(r=>`<div class="row"><div class="ic">${ic(r.i)}</div><div><b>${r.t}</b><br><span class="pts">${r.c} ${STAR}</span></div></div>`).join('');
+  $('rI').innerHTML=REW_IC.map(k=>`<button data-ri="${k}" class="${k===rIc?'on':''}" aria-label="${k}">${ic(k)}</button>`).join('');
+}
+
+// ---- navigation ----
+function nav(){
+  const waitN=S.tasks.filter(t=>t.st==='wait').length+S.asked.length,todoN=S.tasks.filter(t=>t.st==='todo').length;
+  const items=who==='F'?[['home','Missions',todoN],['rew','Récompenses',0]]:[['check','À valider',waitN],['new','Nouvelle mission',0],['arew','Récompenses',0]];
+  $('nav').innerHTML=items.map(([k,l,n])=>`<button data-tab="${k}" class="${tab===k||(tab==='task'&&k==='home')?'on':''}">${l}${n?`<span class="dot">${n}</span>`:''}</button>`).join('');
+}
+function show(t){tab=t;
+  ['fHome','fTask','fRew','aCheck','aNew','aRew'].forEach(id=>$(id).classList.add('hide'));
+  const map={home:'fHome',task:'fTask',rew:'fRew',check:'aCheck',new:'aNew',arew:'aRew'};$(map[t]).classList.remove('hide');
+  ({home:fHome,task:fTask,rew:fRew,check:aCheck,new:aNew,arew:aRew})[t]();nav();window.scrollTo(0,0);
+}
+function setWho(w){who=w;$('swF').classList.toggle('on',w==='F');$('swA').classList.toggle('on',w==='A');$('F').classList.toggle('hide',w!=='F');$('A').classList.toggle('hide',w!=='A');show(w==='F'?'home':'check')}
+$('swF').onclick=()=>setWho('F');$('swA').onclick=()=>setWho('A');
+
+document.addEventListener('click',e=>{
+  const g=a=>e.target.closest('['+a+']')?.getAttribute(a);
+  let v;
+  if(v=g('data-tab'))show(v);
+  if(v=g('data-open')){openTask=+v;show('task')}
+  if(v=g('data-step')){const t=S.tasks.find(x=>x.id===openTask),k=+v;t.done=t.done.includes(k)?t.done.filter(x=>x!==k):[...t.done,k];fTask()}
+  if(e.target.id==='fin'){const t=S.tasks.find(x=>x.id===openTask);t.st='wait';party(STAR.replace('aria-hidden','style="width:90px;height:90px" aria-hidden'),'Bravo !','Quelqu\'un de la famille va vérifier.');show('home')}
+  if(e.target.id==='back')show('home');
+  if(v=g('data-goal')){S.goal=+v;fRew()}
+  if(v=g('data-ask')){const r=S.rewards.find(x=>x.id===+v);S.spent+=r.c;S.asked.push({r:r.id});S.hist.unshift(`Ton frère demande : ${r.t} (−${r.c} étoiles)`);fRew();nav();toast('Ta demande est envoyée à la famille')}
+  if(v=g('data-ok')){const t=S.tasks.find(x=>x.id===+v);t.st='ok';S.earned+=t.p;S.hist.unshift(`« ${t.t} » validée, +${t.p} étoiles`);aCheck();nav();toast(`+${t.p} étoiles envoyées. Ton frère voit une petite fête.`);pendingParty.push(t)}
+  if(v=g('data-notyet')){const t=S.tasks.find(x=>x.id===+v);t.st='todo';t.done=[];S.hist.unshift(`« ${t.t} » : pas encore, renvoyée gentiment`);aCheck();nav();toast('La mission revient dans sa liste, sans perdre d\'étoiles.')}
+  if(v=g('data-given')){const i=S.asked.findIndex(a=>a.r===+v);const r=S.rewards.find(x=>x.id===+v);S.asked.splice(i,1);S.hist.unshift(`Récompense donnée : ${r.t}`);aCheck();nav()}
+  if(v=g('data-ni')){newIc=v;aNew()}
+  if(v=g('data-np')){newP=+v;aNew()}
+  if(v=g('data-ri')){rIc=v;aRew()}
+  if(e.target.id==='nGo'){const t=$('nT').value.trim();if(!t){$('nT').focus();return}
+    const steps=$('nS').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    S.tasks.unshift({id:++uid,t,i:newIc,p:newP,steps,st:'todo',done:[]});S.hist.unshift(`Nouvelle mission envoyée : « ${t} »`);
+    $('nT').value='';$('nS').value='';toast('Envoyé ! Ton frère reçoit une notification.');pendingNew.push(t);show('check')}
+  if(e.target.id==='rGo'){const t=$('rT').value.trim(),c=Math.max(1,Math.min(99,parseInt($('rC').value,10)||0));if(!t){$('rT').focus();return}
+    S.rewards.push({id:++uid,t,i:rIc,c});$('rT').value='';aRew();toast('Récompense ajoutée')}
+});
+// ce que le frère voit en revenant sur sa vue (simule les notifications)
+const pendingParty=[],pendingNew=[];
+$('swF').addEventListener('click',()=>{
+  if(pendingNew.length){toast('Nouvelle mission : '+pendingNew.splice(0).join(', '))}
+  if(pendingParty.length){const n=pendingParty.reduce((s,t)=>s+t.p,0);pendingParty.length=0;
+    party(STAR.replace('aria-hidden','style="width:90px;height:90px" aria-hidden'),`+${n} étoile${n>1?'s':''} !`,'La famille a validé ta mission. Bravo !')}
+});
+setWho('F');
+}
+</script>
+</body>
+</html>

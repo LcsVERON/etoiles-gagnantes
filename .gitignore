@@ -1,0 +1,14 @@
+# Document personnel (procédure de mise en ligne)
+DEVELOPPEMENT.md
+
+# Dépendances et journaux locaux
+node_modules/
+*.log
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+.firebase/
+
+# Fichiers destinés à Claude
+.claude/
+CLAUDE.md
