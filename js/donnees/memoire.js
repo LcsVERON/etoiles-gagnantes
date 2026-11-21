@@ -2,7 +2,7 @@
 // Fonctions pures : appliquer des écritures et fabriquer l'« état » lu par
 // l'interface. Le stockage Firebase (étape 4) fabriquera un état de même forme.
 
-import { HORODATAGE } from '../actions.js';
+import { HORODATAGE, Increment } from '../actions.js';
 
 export const COLLECTIONS = Object.freeze(['members', 'invites', 'tasks', 'validations', 'rewards', 'redemptions', 'events']);
 
@@ -13,9 +13,14 @@ export function baseVide() {
   return b;
 }
 
-function remplacerHorodatage(donnees, maintenant) {
+/** Remplace les marqueurs : HORODATAGE → date, Increment → ancienne valeur + n. */
+function remplacerHorodatage(donnees, maintenant, ancien = {}) {
   const out = {};
-  for (const [k, v] of Object.entries(donnees)) out[k] = v === HORODATAGE ? maintenant : v;
+  for (const [k, v] of Object.entries(donnees)) {
+    if (v === HORODATAGE) out[k] = maintenant;
+    else if (v instanceof Increment) out[k] = (Number.isFinite(ancien[k]) ? ancien[k] : 0) + v.n;
+    else out[k] = v;
+  }
   return out;
 }
 
@@ -30,7 +35,7 @@ export function appliquer(base, ops, maintenant) {
   for (const { op, col, id, donnees } of ops) {
     if (col === null) {
       if (op === 'creer') { if (b.famille) throw new Error('La famille existe déjà.'); b.famille = remplacerHorodatage(donnees, maintenant); }
-      else if (op === 'modifier') { if (!b.famille) throw new Error('Famille introuvable.'); b.famille = { ...b.famille, ...remplacerHorodatage(donnees, maintenant) }; }
+      else if (op === 'modifier') { if (!b.famille) throw new Error('Famille introuvable.'); b.famille = { ...b.famille, ...remplacerHorodatage(donnees, maintenant, b.famille) }; }
       else if (op === 'supprimer') b.famille = null;
       continue;
     }
@@ -41,7 +46,7 @@ export function appliquer(base, ops, maintenant) {
       b[col][id] = remplacerHorodatage(donnees, maintenant);
     } else if (op === 'modifier') {
       if (!existe) throw new Error(`${col}/${id} introuvable.`);
-      b[col][id] = { ...b[col][id], ...remplacerHorodatage(donnees, maintenant) };
+      b[col][id] = { ...b[col][id], ...remplacerHorodatage(donnees, maintenant, b[col][id]) };
     } else if (op === 'supprimer') {
       delete b[col][id];
     } else {

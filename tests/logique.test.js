@@ -43,6 +43,15 @@ describe('calculerSolde', () => {
   });
 });
 
+describe('soldeMembre', () => {
+  test('gagnées − dépensées, valeurs invalides ignorées', () => {
+    assert.equal(L.soldeMembre({ gagnees: 12, depensees: 10 }), 2);
+    assert.equal(L.soldeMembre({ gagnees: 3 }), 3);
+    assert.equal(L.soldeMembre({ gagnees: '3', depensees: -1 }), 0);
+    assert.equal(L.soldeMembre(null), 0);
+  });
+});
+
 describe('Encore N étoiles', () => {
   test('etoilesManquantes', () => {
     assert.equal(L.etoilesManquantes(7, 10), 3);
@@ -106,8 +115,9 @@ describe('transitions de statut des missions', () => {
     assert.equal(L.transitionMissionAutorisee('aidant', w, 'todo', MAINTENANT), true);
   });
 
-  test('aidant : pas de validation directe depuis todo, pas de retour arrière depuis ok', () => {
-    assert.equal(L.transitionMissionAutorisee('aidant', mission(), 'ok', MAINTENANT), false);
+  test('aidant : validation directe depuis todo, mais pas de retour arrière depuis ok', () => {
+    assert.equal(L.transitionMissionAutorisee('aidant', mission(), 'ok', MAINTENANT), true);
+    assert.equal(L.transitionMissionAutorisee('aidant', mission({ statut: 'wait' }), 'wait', MAINTENANT), false);
     assert.equal(L.transitionMissionAutorisee('aidant', mission({ statut: 'ok' }), 'todo', MAINTENANT), false);
     assert.equal(L.transitionMissionAutorisee('aidant', mission({ statut: 'ok' }), 'wait', MAINTENANT), false);
   });
@@ -182,6 +192,7 @@ describe('liste et compteurs', () => {
 describe('plusieurs personnes aidées', () => {
   test('donneesAide sépare les missions et les soldes', () => {
     const etat = {
+      membres: [{ id: 'x', gagnees: 6, depensees: 4 }, { id: 'y', gagnees: 2, depensees: 1 }],
       missions: [mission({ id: 'a', pour: 'x' }), mission({ id: 'b', pour: 'y' })],
       validations: [{ pour: 'x', etoiles: 5 }, { pour: 'y', etoiles: 2 }, { pour: 'x', etoiles: 1 }],
       demandes: [{ pour: 'x', prix: 4, statut: 'asked' }, { pour: 'y', prix: 1, statut: 'given' }],

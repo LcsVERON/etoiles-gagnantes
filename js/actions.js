@@ -20,11 +20,24 @@
 //   moi       : membre connecté ({ id, prenom, role, ... })
 //   nouvelId  : fonction qui fabrique un identifiant de document
 //   maintenant: date actuelle (ms) — utilisée seulement pour les remises à zéro
+//
+// L'ordre des écritures compte quand un lot est trop gros et doit être
+// découpé (Firestore : 500 écritures par lot) : voir retirerMembre et
+// supprimerFamille.
 
 import * as L from './logique.js';
 
 /** Marqueur remplacé par la date du serveur au moment de l'écriture. */
 export const HORODATAGE = Object.freeze({ horodatage: true });
+
+/**
+ * Ajout à un compteur, fait par le serveur (Firestore : increment()). Deux
+ * aidants qui valident en même temps ne s'écrasent donc pas l'un l'autre.
+ */
+export class Increment {
+  constructor(n) { this.n = n; Object.freeze(this); }
+}
+export const incrementer = (n) => new Increment(n);
 
 /** Erreur de saisie : `erreurs` associe un champ du formulaire à un message. */
 export class ErreurSaisie extends Error {
@@ -80,13 +93,18 @@ export function creerFamille({ nom, moi, nouvelId }) {
   const ctx = { moi: { id: moi.id, prenom: p, role: 'aidant' }, nouvelId };
   return [
     creer(null, null, { nom: n, creeeLe: HORODATAGE, creeePar: moi.id }),
-    creer('members', moi.id, membre(p, 'aidant')),
+    creer('members', moi.id, membre(moi.id, p, 'aidant')),
     evenement(ctx, 'famille_creee', {}),
   ];
 }
 
-function membre(prenom, role) {
-  return { prenom, role, objectif: null, fetesVuesJusqua: null, rejointLe: HORODATAGE };
+/** Fiche d'un nouveau membre. Les compteurs ne servent qu'aux personnes aidées. */
+function membre(uid, prenom, role) {
+  return {
+    uid, prenom, role,
+    objectif: null, fetesVuesJusqua: null, rejointLe: HORODATAGE,
+    gagnees: 0, depensees: 0, derniereValidation: null, derniereDemande: null,
+  };
 }
 
 /** Un aidant invite quelqu'un (adresse e-mail, prénom, rôle). */
@@ -97,7 +115,7 @@ export function inviter(etat, ctx, saisie) {
   const { email, role, prenom } = r.invitation;
   exiger(!etat.invitations.some((i) => i.id === email), 'Cette adresse est déjà invitée.');
   return [
-    creer('invites', email, { prenom, role, invitePar: ctx.moi.id, creeLe: HORODATAGE }),
+    creer('invites', email, { email, prenom, role, invitePar: ctx.moi.id, creeLe: HORODATAGE }),
     evenement(ctx, 'membre_invite', { titre: prenom }),
   ];
 }
@@ -116,7 +134,7 @@ export function annulerInvitation(etat, ctx, email) {
 export function rejoindre(invitation, uid, nouvelId) {
   const ctx = { moi: { id: uid, prenom: invitation.prenom, role: invitation.role }, nouvelId };
   return [
-    creer('members', uid, membre(invitation.prenom, invitation.role)),
+    creer('members', uid, membre(uid, invitation.prenom, invitation.role)),
     supprimer('invites', invitation.id),
     evenement(ctx, 'membre_rejoint', {}),
   ];
@@ -127,29 +145,36 @@ export function rejoindre(invitation, uid, nouvelId) {
  * validations et demandes sont supprimées avec elle.
  * Un aidant ne peut pas se retirer lui-même : il reste donc toujours au
  * moins un aidant (pour tout arrêter, il supprime la famille).
+ * La fiche du membre est supprimée EN PREMIER : les règles n'autorisent la
+ * suppression de validations et de demandes que si la personne aidée
+ * n'existe plus (personne ne peut ainsi retirer des étoiles).
  */
 export function retirerMembre(etat, ctx, uid) {
   exigerAidant(ctx);
   exiger(uid !== ctx.moi.id, 'Tu ne peux pas te retirer toi-même.');
   const m = trouver(etat.membres, uid, 'Membre introuvable.');
-  const ops = [];
+  const ops = [
+    supprimer('members', uid),
+    evenement(ctx, 'membre_retire', { titre: m.prenom }),
+  ];
   if (m.role === 'frere') {
     for (const col of [['tasks', etat.missions], ['validations', etat.validations], ['redemptions', etat.demandes]]) {
       col[1].filter((x) => x.pour === uid).forEach((x) => ops.push(supprimer(col[0], x.id)));
     }
   }
-  ops.push(supprimer('members', uid));
-  ops.push(evenement(ctx, 'membre_retire', { titre: m.prenom }));
   return ops;
 }
 
 /**
- * Supprime toutes les données de la famille. Le membre qui agit est supprimé
- * en avant-dernier, et le document de la famille en dernier.
+ * Supprime toutes les données de la famille.
+ *   1. la famille est marquée « en suppression » (les règles autorisent alors
+ *      à effacer validations, demandes, récompenses et historique) ;
+ *   2. tout le reste est supprimé ;
+ *   3. le membre qui agit est supprimé en avant-dernier, la famille en dernier.
  */
 export function supprimerFamille(etat, ctx) {
   exigerAidant(ctx);
-  const ops = [];
+  const ops = [modifier(null, null, { suppression: true })];
   const tout = [['events', etat.evenements], ['redemptions', etat.demandes],
     ['validations', etat.validations], ['tasks', etat.missions],
     ['rewards', etat.recompenses], ['invites', etat.invitations]];
@@ -221,7 +246,11 @@ export function terminerMission(etat, ctx, id) {
   ];
 }
 
-/** « C'est fait ✓ » : la mission est validée et une validation donne les étoiles. */
+/**
+ * « C'est fait ✓ » : la mission est validée (depuis « en attente », ou
+ * directement depuis « à faire »). Une validation est créée et le compteur
+ * d'étoiles gagnées de la personne aidée augmente, dans le même lot.
+ */
 export function validerMission(etat, ctx, id) {
   exigerAidant(ctx);
   const m = trouver(etat.missions, id, 'Mission introuvable.');
@@ -235,6 +264,7 @@ export function validerMission(etat, ctx, id) {
     modifier('tasks', id, {
       statut: 'ok', valideePar: ctx.moi.id, valideeLe: HORODATAGE, derniereValidation: vid,
     }),
+    modifier('members', m.pour, { gagnees: incrementer(m.etoiles), derniereValidation: vid }),
     evenement(ctx, 'mission_validee', { titre: m.titre, etoiles: m.etoiles, pourNom: prenomDe(etat, m.pour) }),
   ];
 }
@@ -272,16 +302,22 @@ export function choisirObjectif(etat, ctx, recompenseId) {
   return [modifier('members', ctx.moi.id, { objectif: recompenseId })];
 }
 
-/** « Je veux X » : la demande fige le prix actuel et fait baisser le solde. */
+/**
+ * « Je veux X » : la demande fige le prix actuel ; le compteur d'étoiles
+ * dépensées augmente dans le même lot (les règles vérifient qu'il reste
+ * assez d'étoiles).
+ */
 export function demanderRecompense(etat, ctx, recompenseId) {
   exigerAide(ctx);
   const r = trouver(etat.recompenses, recompenseId, 'Récompense introuvable.');
   const { demandes, solde } = L.donneesAide(etat, ctx.moi.id);
   exiger(L.peutDemander(r, solde, demandes), 'Pas encore assez d\'étoiles.');
+  const did = ctx.nouvelId();
   return [
-    creer('redemptions', ctx.nouvelId(), {
+    creer('redemptions', did, {
       ...L.preparerDemande(r), pour: ctx.moi.id, demandeeLe: HORODATAGE, donneePar: null, donneeLe: null,
     }),
+    modifier('members', ctx.moi.id, { depensees: incrementer(r.prix), derniereDemande: did }),
     evenement(ctx, 'recompense_demandee', { titre: r.titre, etoiles: r.prix }),
   ];
 }

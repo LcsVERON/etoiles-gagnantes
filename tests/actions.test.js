@@ -142,6 +142,60 @@ describe('parcours d\'une mission', () => {
   });
 });
 
+describe('validation directe et compteurs', () => {
+  test('un aidant peut valider une mission « à faire » sans attendre « J\'ai fini »', () => {
+    const w = monde();
+    w.faire('aid', A.creerMissions, { titre: 'Courses', icone: 'courses', etoiles: 4, etapes: 'A\nB' }, ['x']);
+    w.faire('aid', A.validerMission, idMission(w, 'Courses'));
+    assert.equal(w.etat('aid').missions[0].statut, 'ok');
+    assert.equal(w.solde('x'), 4);
+    assert.throws(() => w.faire('aid', A.validerMission, idMission(w, 'Courses')), /pas à valider/, 'pas deux fois');
+  });
+
+  test('les compteurs donnent toujours le même solde que le recalcul complet', () => {
+    const w = monde();
+    const verifier = () => {
+      for (const uid of ['x', 'y']) {
+        const E = w.etat('aid');
+        const ref = L.calculerSolde({
+          validations: E.validations.filter((v) => v.pour === uid),
+          demandes: E.demandes.filter((d) => d.pour === uid),
+        });
+        assert.equal(w.solde(uid), ref, uid);
+      }
+    };
+    w.faire('aid', A.creerMissions, { titre: 'A', icone: 'lit', etoiles: 2, quotidienne: true }, ['x', 'y']);
+    w.faire('aid', A.creerMissions, { titre: 'B', icone: 'plante', etoiles: 5 }, ['x']);
+    for (let jour = 0; jour < 3; jour++) {
+      for (const m of w.etat('aid').missions.filter((x) => x.statut === 'todo')) {
+        if (m.pour === 'x') w.faire('x', A.terminerMission, m.id);
+        w.faire('aid', A.validerMission, m.id);
+        verifier();
+      }
+      w.avancer(JOUR);
+      w.faire('aid', A.remisesAZero);
+    }
+    w.faire('x', A.demanderRecompense, idRecompense(w, 'Glace'));
+    verifier();
+    w.faire('aid', A.donnerRecompense, w.etat('aid').demandes[0].id);
+    verifier();
+    assert.equal(w.solde('x'), 6 + 5 - 3);
+    assert.equal(w.solde('y'), 6);
+  });
+
+  test('la validation pointe vers la mission et la fiche, dans le même lot', () => {
+    const w = monde();
+    w.faire('aid', A.creerMissions, { titre: 'M', icone: 'lit', etoiles: 2 }, ['x']);
+    const ops = w.faire('aid', A.validerMission, idMission(w, 'M'));
+    const v = ops.find((o) => o.col === 'validations');
+    assert.equal(ops.find((o) => o.col === 'tasks').donnees.derniereValidation, v.id);
+    const fiche = ops.find((o) => o.col === 'members');
+    assert.equal(fiche.id, 'x');
+    assert.equal(fiche.donnees.derniereValidation, v.id);
+    assert.ok(fiche.donnees.gagnees instanceof A.Increment);
+  });
+});
+
 describe('missions quotidiennes', () => {
   test('revient le lendemain, étoiles gardées, et peut être regagnée', () => {
     const w = monde();
@@ -264,6 +318,7 @@ describe('fête et membres', () => {
   test('un aidant ne peut pas se retirer lui-même', () => {
     const w = monde();
     assert.throws(() => w.faire('aid', A.retirerMembre, 'aid'), /toi-même/);
+    assert.equal(A.retirerMembre(w.etat('aid'), { moi: w.etat('aid').moi, nouvelId: () => 'e' }, 'x')[0].op, 'supprimer', 'la fiche est supprimée en premier');
     w.faire('aid', A.retirerMembre, 'aid2');
     assert.equal(w.etat('aid').membres.filter((m) => m.role === 'aidant').length, 1);
     assert.throws(() => w.faire('x', A.retirerMembre, 'y'), /aidants/);
@@ -273,7 +328,10 @@ describe('fête et membres', () => {
     const w = monde();
     w.faire('aid', A.creerMissions, { titre: 'M', icone: 'lit', etoiles: 1 }, ['x']);
     w.faire('aid', A.inviter, { email: 'z@example.com', prenom: 'Z', role: 'frere' });
-    w.faire('aid', A.supprimerFamille);
+    const ops = w.faire('aid', A.supprimerFamille);
+    assert.deepEqual(ops[0], { op: 'modifier', col: null, id: null, donnees: { suppression: true } }, 'marquage d\'abord');
+    assert.deepEqual(ops.at(-1), { op: 'supprimer', col: null, id: null }, 'famille en dernier');
+    assert.deepEqual(ops.at(-2), { op: 'supprimer', col: 'members', id: 'aid' }, 'soi-même en avant-dernier');
     const b = w.base;
     assert.equal(b.famille, null);
     for (const col of ['members', 'invites', 'tasks', 'validations', 'rewards', 'redemptions', 'events']) {
@@ -290,6 +348,13 @@ describe('base en mémoire', () => {
       { op: 'modifier', col: 'tasks', id: 'absent', donnees: {} },
     ], 0));
     assert.deepEqual(b.tasks, {}, 'la base d\'origine n\'a pas bougé');
+  });
+
+  test('Increment ajoute à l\'ancienne valeur', () => {
+    let b = appliquer(baseVide(), [{ op: 'creer', col: 'members', id: 'm', donnees: { gagnees: 2 } }], 0);
+    b = appliquer(b, [{ op: 'modifier', col: 'members', id: 'm', donnees: { gagnees: A.incrementer(3), depensees: A.incrementer(1) } }], 0);
+    assert.equal(b.members.m.gagnees, 5);
+    assert.equal(b.members.m.depensees, 1);
   });
 
   test('HORODATAGE est remplacé par la date', () => {

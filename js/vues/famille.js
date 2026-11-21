@@ -105,7 +105,8 @@ function ligneMission(m) {
   else statut = html`<span class="statut">À faire${m.etapes.length ? ` · ${faites}/${m.etapes.length} étapes` : ''}</span>`;
   return html`<div class="row"><div class="ic">${IC(m.icone)}</div>
     <div><b>${m.titre}</b><span class="info">${etoiles(m.etoiles)}${m.quotidienne ? ' · chaque jour' : ''}</span>${statut}</div>
-    <div class="acts droite"><button class="no" type="button" data-clic="supprimerMission" data-id="${m.id}">Supprimer</button></div></div>`;
+    <div class="acts droite">${m.statut === 'todo' ? html`<button class="yes" type="button" data-clic="valider" data-id="${m.id}">C'est fait ✓</button>` : ''}
+      <button class="no" type="button" data-clic="supprimerMission" data-id="${m.id}">Supprimer</button></div></div>`;
 }
 
 async function envoyerMission(app) {

@@ -8,9 +8,13 @@
 // Vocabulaire des données (identique dans Firestore et dans le mode démo) :
 //   mission     : { id, titre, icone, etoiles, etapes: [texte], cochees: [booléen],
 //                   statut: 'todo'|'wait'|'ok', quotidienne, valideeLe, ... }
-//   validation  : { id, missionId, titre, icone, etoiles, le }
-//                 → une ligne par mission validée. C'est la seule source des
-//                   étoiles gagnées (voir calculerSolde).
+//   validation  : { id, missionId, pour, titre, icone, etoiles, le }
+//                 → une ligne par mission validée (trace de chaque gain).
+//   membre      : { id, prenom, role, objectif, fetesVuesJusqua,
+//                   gagnees, depensees, ... }
+//                 → `gagnees` et `depensees` sont deux compteurs mis à jour
+//                   dans le même lot que chaque validation ou demande, et
+//                   vérifiés par firestore.rules (voir soldeMembre).
 //   recompense  : { id, titre, icone, prix, archivee }
 //   demande     : { id, recompenseId, titre, icone, prix, statut: 'asked'|'given' }
 //   evenement   : { type, titre, etoiles, auteurUid, auteurNom, pourNom }
@@ -109,11 +113,15 @@ const entierPositif = (n) => (Number.isInteger(n) && n > 0 ? n : 0);
 
 /**
  * Solde d'étoiles = étoiles des missions validées − prix des récompenses
- * demandées ou données. Le solde n'est jamais stocké : on le recalcule.
+ * demandées ou données, calculé à partir de la liste complète.
  *
  * Les étoiles gagnées viennent des « validations » (une par mission validée)
  * et non du statut actuel des missions : ainsi, remettre à zéro une mission
  * quotidienne, la supprimer ou la modifier ne retire jamais d'étoiles.
+ *
+ * L'application affiche soldeMembre() (compteurs, lecture d'un seul document) ;
+ * cette fonction sert de référence : les tests vérifient que les deux
+ * donnent toujours le même résultat.
  */
 export function calculerSolde({ validations = [], demandes = [] } = {}) {
   const gagnees = validations.reduce((s, v) => s + entierPositif(v.etoiles), 0);
@@ -121,6 +129,16 @@ export function calculerSolde({ validations = [], demandes = [] } = {}) {
     .filter((d) => d.statut === 'asked' || d.statut === 'given')
     .reduce((s, d) => s + entierPositif(d.prix), 0);
   return gagnees - depensees;
+}
+
+/**
+ * Solde d'une personne aidée à partir des compteurs de sa fiche :
+ * gagnees (somme des validations) − depensees (somme des demandes).
+ * Le solde lui-même n'est jamais stocké.
+ */
+export function soldeMembre(membre) {
+  if (!membre) return 0;
+  return entierPositif(membre.gagnees) - entierPositif(membre.depensees);
 }
 
 /** Nombre d'étoiles qu'il manque pour obtenir une récompense (jamais négatif). */
@@ -190,6 +208,7 @@ export function remisesAZero(missions, maintenant) {
  *   frère  : todo → wait (« J'ai fini », seulement si tout est coché)
  *            ok   → todo (remise à zéro d'une mission quotidienne d'un jour passé)
  *   aidant : wait → ok   (« C'est fait ✓ »)
+ *            todo → ok   (validation directe, sans attendre « J'ai fini »)
  *            wait → todo (« Pas encore » : étapes décochées, aucune étoile retirée)
  *            ok   → todo (remise à zéro d'une mission quotidienne d'un jour passé)
  * Toute autre transition est refusée.
@@ -204,6 +223,7 @@ export function transitionMissionAutorisee(role, mission, vers, maintenant) {
   }
   if (role === 'aidant') {
     if (de === 'wait' && (vers === 'ok' || vers === 'todo')) return true;
+    if (de === 'todo' && vers === 'ok') return true;
     return remise;
   }
   return false;
@@ -228,17 +248,15 @@ export function missionsDuFrere(missions) {
 
 /**
  * Données d'une personne aidée, extraites de l'état de la famille :
- * ses missions, ses validations, ses demandes et son solde.
+ * ses missions, ses validations, ses demandes et son solde (compteurs).
  */
 export function donneesAide(etat, uid) {
   const pourElle = (x) => x.pour === uid;
-  const validations = (etat.validations || []).filter(pourElle);
-  const demandes = (etat.demandes || []).filter(pourElle);
   return {
     missions: (etat.missions || []).filter(pourElle),
-    validations,
-    demandes,
-    solde: calculerSolde({ validations, demandes }),
+    validations: (etat.validations || []).filter(pourElle),
+    demandes: (etat.demandes || []).filter(pourElle),
+    solde: soldeMembre((etat.membres || []).find((m) => m.id === uid)),
   };
 }
 

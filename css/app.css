@@ -176,6 +176,10 @@ dialog.confirm .box { text-align: left; }
 dialog.confirm h2 { margin-top: 0; }
 dialog.confirm .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 dialog.confirm .acts button { flex: 1; min-height: 56px; }
+dialog.confirm.grand .box { text-align: center; }
+dialog.confirm.grand h1 { font-size: 32px; margin: 8px 0; }
+dialog.confirm.grand .ligne { font-size: 22px; margin: 0 0 6px; }
+dialog.confirm.grand .ic { width: 96px; height: 96px; margin: 0 auto; border-radius: 22px; }
 @media (prefers-reduced-motion: no-preference) {
   dialog.party .box { animation: pop .4s ease-out; }
   @keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }

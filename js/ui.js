@@ -48,12 +48,19 @@ export function fete({ titre, ligne, bouton = 'Super !' }) {
   });
 }
 
-/** Confirmation (vue famille). Renvoie true si on confirme. */
-export function confirmer({ titre, texte, oui, non = 'Annuler', danger = false }) {
+/**
+ * Confirmation. Renvoie true si on confirme.
+ *   grand : boutons larges, l'un sous l'autre (vue de la personne aidée)
+ *   icone : code SVG de l'application affiché en haut (facultatif)
+ */
+export function confirmer({ titre, texte, oui, non = 'Annuler', danger = false, grand = false, icone = '' }) {
   return ouvrir((dlg, fermer) => {
-    dlg.className = 'confirm';
-    remplir(dlg, html`<div class="box"><h2 id="dlgTitre">${titre}</h2><p>${texte}</p>
-      <div class="acts"><button type="button" class="${danger ? 'danger' : 'yes'}" data-r="1">${oui}</button><button type="button" class="no" data-r="0" autofocus>${non}</button></div></div>`);
+    dlg.className = grand ? 'confirm grand' : 'confirm';
+    remplir(dlg, grand
+      ? html`<div class="box">${icone ? html`<div class="ic">${brut(icone)}</div>` : ''}<h1 id="dlgTitre">${titre}</h1><p class="ligne">${texte}</p>
+          <button type="button" class="big" data-r="1">${oui}</button><button type="button" class="ghost" data-r="0" autofocus>${non}</button></div>`
+      : html`<div class="box"><h2 id="dlgTitre">${titre}</h2><p>${texte}</p>
+          <div class="acts"><button type="button" class="${danger ? 'danger' : 'yes'}" data-r="1">${oui}</button><button type="button" class="no" data-r="0" autofocus>${non}</button></div></div>`);
     dlg.setAttribute('aria-labelledby', 'dlgTitre');
     dlg.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => fermer(b.dataset.r === '1'), { once: true }));
   });

@@ -63,14 +63,18 @@ function exemple(t) {
   const b = baseVide();
   const il_y_a = (jours, heures = 0) => t - jours * JOUR - heures * 3600 * 1000;
   b.famille = { nom: 'Famille démo', creeeLe: il_y_a(30), creeePar: 'aidant1' };
-  const m = (prenom, role, x = {}) => ({ prenom, role, objectif: null, fetesVuesJusqua: null, rejointLe: il_y_a(30), ...x });
+  const m = (uid, prenom, role, x = {}) => ({
+    uid, prenom, role, objectif: null, fetesVuesJusqua: null, rejointLe: il_y_a(30),
+    gagnees: 0, depensees: 0, derniereValidation: null, derniereDemande: null, ...x,
+  });
+  // Compteurs cohérents avec les validations ci-dessous (Alex : 2 + 5, Sam : 1 + 4).
   b.members = {
-    aidant1: m('Camille', 'aidant'),
-    aidant2: m('Dominique', 'aidant'),
-    aide1: m('Alex', 'frere', { objectif: 'r1' }),
-    aide2: m('Sam', 'frere'),
+    aidant1: m('aidant1', 'Camille', 'aidant'),
+    aidant2: m('aidant2', 'Dominique', 'aidant'),
+    aide1: m('aide1', 'Alex', 'frere', { objectif: 'r1', gagnees: 7, derniereValidation: 'v2' }),
+    aide2: m('aide2', 'Sam', 'frere', { gagnees: 5, derniereValidation: 'v3' }),
   };
-  b.invites = { 'invite@example.com': { prenom: 'Charlie', role: 'aidant', invitePar: 'aidant1', creeLe: il_y_a(1) } };
+  b.invites = { 'invite@example.com': { email: 'invite@example.com', prenom: 'Charlie', role: 'aidant', invitePar: 'aidant1', creeLe: il_y_a(1) } };
   b.rewards = {
     r1: { titre: 'Glace', icone: 'glace', prix: 10, archivee: false, creeeLe: il_y_a(30) },
     r2: { titre: 'Cinéma', icone: 'cinema', prix: 15, archivee: false, creeeLe: il_y_a(30) },

@@ -1,0 +1,633 @@
+rules_version = '2';
+
+// =============================================================================
+// Règles de sécurité de Cloud Firestore — « Mes missions »
+// =============================================================================
+//
+// Principe : TOUT est interdit, sauf ce qui est explicitement autorisé ici.
+// Le modèle de données est décrit dans docs/modele-donnees.md.
+//
+// Rappels sur le langage des règles :
+//   - resource.data          = le document AVANT l'écriture ;
+//   - request.resource.data  = le document APRÈS l'écriture ;
+//   - get() / exists()       = lisent la base AVANT le lot d'écritures ;
+//   - getAfter() / existsAfter() = lisent la base comme elle sera APRÈS le lot
+//     complet (toutes les écritures envoyées ensemble par l'appli). C'est ce
+//     qui permet de vérifier que plusieurs documents changent ensemble
+//     (par exemple : une validation ET le compteur d'étoiles) ;
+//   - request.time           = l'heure du serveur. Un champ de date écrit avec
+//     serverTimestamp() vaut exactement request.time : on vérifie ainsi que
+//     personne n'invente une date ;
+//   - les règles ne savent pas faire de boucles ni additionner des documents.
+//
+// Rôles : 'aidant' (gère la famille) et 'frere' (personne aidée).
+// Personne ne choisit son rôle : il vient de l'invitation créée par un aidant,
+// et aucune règle ne permet de le modifier ensuite.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Outils généraux
+    // -------------------------------------------------------------------------
+
+    function connecte() {
+      return request.auth != null;
+    }
+
+    // Adresse e-mail vérifiée par Firebase (lien e-mail ou compte Google).
+    function emailVerifie() {
+      return connecte()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string;
+    }
+
+    // Les invitations sont rangées par adresse en minuscules.
+    function monEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function cheminFamille(f) {
+      return /databases/$(database)/documents/families/$(f);
+    }
+
+    function chemin(f, collection, id) {
+      return /databases/$(database)/documents/families/$(f)/$(collection)/$(id);
+    }
+
+    // Ma fiche de membre dans la famille f (avant le lot d'écritures).
+    function moi(f) {
+      return get(chemin(f, 'members', request.auth.uid));
+    }
+
+    function estMembre(f) {
+      return connecte() && exists(chemin(f, 'members', request.auth.uid));
+    }
+
+    function estAidant(f) {
+      return estMembre(f) && moi(f).data.role == 'aidant';
+    }
+
+    function estAide(f) {
+      return estMembre(f) && moi(f).data.role == 'frere';
+    }
+
+    // La famille est en cours de suppression complète (ou vient d'être
+    // supprimée dans ce même lot). Seul ce cas permet d'effacer l'historique,
+    // les récompenses, les validations et les demandes.
+    function enSuppression(f) {
+      let famille = getAfter(cheminFamille(f));
+      return famille == null || famille.data.get('suppression', false) == true;
+    }
+
+    // -------------------------------------------------------------------------
+    // Outils de vérification des champs (type ET taille)
+    // -------------------------------------------------------------------------
+
+    function texte(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+
+    function entier(v, min, max) {
+      return v is int && v >= min && v <= max;
+    }
+
+    // Le document écrit contient exactement ces champs, ni plus, ni moins.
+    function champsExacts(liste) {
+      return request.resource.data.keys().hasOnly(liste)
+        && request.resource.data.keys().hasAll(liste);
+    }
+
+    // Seuls ces champs changent (les autres restent identiques).
+    function seulsChangent(liste) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(liste);
+    }
+
+    function change(champ) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([champ]);
+    }
+
+    // Date écrite avec serverTimestamp() (= heure du serveur).
+    function dateServeur(v) {
+      return v == request.time;
+    }
+
+    // Même liste que ICONES_MISSION dans js/logique.js.
+    function iconesMission() {
+      return ['chambre', 'lit', 'poubelle', 'vaisselle', 'table', 'linge', 'aspirateur',
+              'cuisine', 'courses', 'plante', 'marche', 'sport', 'douche', 'dents',
+              'telephone', 'animal'];
+    }
+
+    // Même liste que ICONES_RECOMPENSE dans js/logique.js.
+    function iconesRecompense() {
+      return ['burger', 'pizza', 'glace', 'cinema', 'sortie', 'jeu', 'musique', 'livre',
+              'piscine', 'bowling', 'cadeau', 'ecran'];
+    }
+
+    // Une étape : texte de 1 à 80 caractères. Les règles n'ont pas de boucle :
+    // on vérifie donc les 12 positions possibles une par une.
+    function etapeOk(l, i) {
+      return l.size() <= i || texte(l[i], 1, 80);
+    }
+
+    function etapesOk(l) {
+      return l is list && l.size() <= 12
+        && etapeOk(l, 0) && etapeOk(l, 1) && etapeOk(l, 2) && etapeOk(l, 3)
+        && etapeOk(l, 4) && etapeOk(l, 5) && etapeOk(l, 6) && etapeOk(l, 7)
+        && etapeOk(l, 8) && etapeOk(l, 9) && etapeOk(l, 10) && etapeOk(l, 11);
+    }
+
+    // Étapes cochées : une case vrai/faux par étape.
+    function cocheesOk(c, etapes) {
+      return c is list && c.size() == etapes.size() && c.hasOnly([true, false]);
+    }
+
+    function toutDecoche(c) {
+      return !c.hasAny([true]);
+    }
+
+    function toutCoche(c) {
+      return !c.hasAny([false]);
+    }
+
+    // « Jour » d'une date, en heure de Paris approximée (UTC + 1 h).
+    // En été, la limite entre deux jours tombe donc à 1 h du matin au lieu
+    // de minuit : sans conséquence (l'appli réessaie plus tard).
+    function jourParis(t) {
+      return (t + duration.value(1, 'h')).date();
+    }
+
+    // Vrai si la date t est un jour précédent celui d'aujourd'hui.
+    function jourPasse(t) {
+      return t is timestamp && jourParis(t) < jourParis(request.time);
+    }
+
+    // =========================================================================
+    // families/{f} : la famille
+    //   nom, creeeLe, creeePar, (suppression)
+    // =========================================================================
+    match /families/{f} {
+
+      // Lire : membres de la famille uniquement.
+      allow read: if estMembre(f);
+
+      // Créer : toute personne connectée avec une adresse vérifiée, à
+      // condition de devenir en même temps le premier aidant (sa fiche de
+      // membre est créée dans le même lot ; voir la règle des membres).
+      allow create: if emailVerifie()
+        && champsExacts(['nom', 'creeeLe', 'creeePar'])
+        && texte(request.resource.data.nom, 1, 40)
+        && request.resource.data.creeePar == request.auth.uid
+        && dateServeur(request.resource.data.creeeLe)
+        && existsAfter(chemin(f, 'members', request.auth.uid));
+
+      // Modifier : un aidant peut changer le nom, ou marquer la famille
+      // « en suppression » (première étape de la suppression complète).
+      allow update: if estAidant(f)
+        && seulsChangent(['nom', 'suppression'])
+        && texte(request.resource.data.nom, 1, 40)
+        && request.resource.data.get('suppression', false) is bool;
+
+      // Supprimer : un aidant, seulement si la famille a d'abord été marquée
+      // « en suppression ».
+      allow delete: if estAidant(f)
+        && resource.data.get('suppression', false) == true;
+    }
+
+    // =========================================================================
+    // families/{f}/members/{uid} : fiche de chaque membre
+    //   uid, prenom, role, objectif, fetesVuesJusqua, rejointLe,
+    //   gagnees, depensees, derniereValidation, derniereDemande
+    //
+    // gagnees / depensees : compteurs d'étoiles d'une personne aidée. Ils ne
+    // peuvent changer qu'en même temps qu'une validation (gagnees) ou une
+    // demande de récompense (depensees), et du montant exact. Le solde
+    // (gagnees − depensees) n'est jamais stocké, et ne peut pas devenir
+    // négatif.
+    // =========================================================================
+
+    // Champs d'une fiche toute neuve (compteurs à zéro, rien de choisi).
+    function nouvelleFiche(uid, role, prenom) {
+      let n = request.resource.data;
+      return champsExacts(['uid', 'prenom', 'role', 'objectif', 'fetesVuesJusqua', 'rejointLe',
+                           'gagnees', 'depensees', 'derniereValidation', 'derniereDemande'])
+        && n.uid == uid
+        && n.role == role
+        && n.prenom == prenom
+        && texte(n.prenom, 1, 30)
+        && n.objectif == null
+        && n.fetesVuesJusqua == null
+        && dateServeur(n.rejointLe)
+        && n.gagnees == 0
+        && n.depensees == 0
+        && n.derniereValidation == null
+        && n.derniereDemande == null;
+    }
+
+    // Création par le fondateur : la famille n'existait pas et est créée par
+    // lui dans le même lot. Il devient aidant.
+    function fondateur(f, uid) {
+      let famille = getAfter(cheminFamille(f));
+      return emailVerifie()
+        && !exists(cheminFamille(f))
+        && famille != null
+        && famille.data.creeePar == uid
+        && nouvelleFiche(uid, 'aidant', request.resource.data.prenom);
+    }
+
+    // Création par une personne invitée : une invitation existe pour son
+    // adresse vérifiée ; elle reçoit le rôle et le prénom choisis par
+    // l'aidant, et l'invitation est supprimée dans le même lot.
+    function invite(f, uid) {
+      let inv = chemin(f, 'invites', monEmail());
+      return emailVerifie()
+        && exists(inv)
+        && !existsAfter(inv)
+        && nouvelleFiche(uid, get(inv).data.role, get(inv).data.prenom);
+    }
+
+    // La personne aidée choisit son objectif ou mémorise la dernière fête vue.
+    function majParAide(f) {
+      let n = request.resource.data;
+      return seulsChangent(['objectif', 'fetesVuesJusqua'])
+        && (!change('objectif') || n.objectif == null
+            || (n.objectif is string
+                && exists(chemin(f, 'rewards', n.objectif))
+                && get(chemin(f, 'rewards', n.objectif)).data.archivee == false))
+        && (!change('fetesVuesJusqua') || entier(n.fetesVuesJusqua, 0, 9999999999999));
+    }
+
+    // Compteur « dépensées » : augmente du prix exact d'une NOUVELLE demande
+    // de cette personne, créée dans le même lot, et le solde reste ≥ 0.
+    function compteurDemande(f, uid) {
+      let n = request.resource.data;
+      let id = n.derniereDemande;
+      let demande = getAfter(chemin(f, 'redemptions', id));
+      return seulsChangent(['depensees', 'derniereDemande'])
+        && id is string
+        && !exists(chemin(f, 'redemptions', id))
+        && demande != null
+        && demande.data.pour == uid
+        && n.depensees == resource.data.depensees + demande.data.prix
+        && n.gagnees - n.depensees >= 0;
+    }
+
+    // Compteur « gagnées » : augmente des étoiles exactes d'une NOUVELLE
+    // validation pour cette personne, créée dans le même lot.
+    function compteurValidation(f, uid) {
+      let n = request.resource.data;
+      let id = n.derniereValidation;
+      let validation = getAfter(chemin(f, 'validations', id));
+      return resource.data.role == 'frere'
+        && seulsChangent(['gagnees', 'derniereValidation'])
+        && id is string
+        && !exists(chemin(f, 'validations', id))
+        && validation != null
+        && validation.data.pour == uid
+        && n.gagnees == resource.data.gagnees + validation.data.etoiles;
+    }
+
+    match /families/{f}/members/{uid} {
+
+      // Lire : membres de la famille.
+      allow read: if estMembre(f);
+
+      // Créer : uniquement sa propre fiche, comme fondateur ou comme invité.
+      allow create: if connecte()
+        && uid == request.auth.uid
+        && (fondateur(f, uid) || invite(f, uid));
+
+      // Modifier :
+      //  - la personne aidée, sur sa propre fiche : objectif, fête vue,
+      //    compteur « dépensées » (avec une demande) ;
+      //  - un aidant, sur la fiche d'une personne aidée : compteur
+      //    « gagnées » (avec une validation).
+      // Le rôle et le prénom ne peuvent jamais être modifiés.
+      allow update: if (estAide(f) && uid == request.auth.uid
+                        && (majParAide(f) || compteurDemande(f, uid)))
+                    || (estAidant(f) && compteurValidation(f, uid));
+
+      // Supprimer : un aidant retire un autre membre. Il ne peut pas se
+      // retirer lui-même (il reste donc toujours au moins un aidant), sauf
+      // pendant la suppression complète de la famille.
+      allow delete: if estAidant(f)
+        && (uid != request.auth.uid || enSuppression(f));
+    }
+
+    // =========================================================================
+    // families/{f}/invites/{email} : invitations en attente
+    //   email, prenom, role, invitePar, creeLe
+    // =========================================================================
+    match /families/{f}/invites/{email} {
+
+      // Lire : les aidants, et la personne invitée elle-même.
+      allow read: if estAidant(f)
+        || (emailVerifie() && email == monEmail());
+
+      // Créer : un aidant. L'identifiant du document est l'adresse en
+      // minuscules, recopiée dans le champ email.
+      allow create: if estAidant(f)
+        && champsExacts(['email', 'prenom', 'role', 'invitePar', 'creeLe'])
+        && request.resource.data.email == email
+        && texte(email, 6, 254)
+        && email == email.lower()
+        && email.matches('^[^@\\s/]+@[^@\\s/]+[.][^@\\s/]+$')
+        && request.resource.data.role in ['aidant', 'frere']
+        && texte(request.resource.data.prenom, 1, 30)
+        && request.resource.data.invitePar == request.auth.uid
+        && dateServeur(request.resource.data.creeLe);
+
+      // Modifier : jamais (on annule et on réinvite).
+      allow update: if false;
+
+      // Supprimer : un aidant (annuler), ou la personne invitée (en
+      // rejoignant la famille, ou pour refuser).
+      allow delete: if estAidant(f)
+        || (emailVerifie() && email == monEmail());
+    }
+
+    // =========================================================================
+    // families/{f}/tasks/{t} : missions
+    //   titre, icone, etoiles, etapes, cochees, statut (todo | wait | ok),
+    //   quotidienne, pour, creeePar, creeeLe, valideePar, valideeLe,
+    //   derniereValidation
+    // Titre, image, étoiles, étapes et destinataire ne changent jamais.
+    // =========================================================================
+
+    function nouvelleMission(f) {
+      let n = request.resource.data;
+      return champsExacts(['titre', 'icone', 'etoiles', 'etapes', 'cochees', 'statut',
+                           'quotidienne', 'pour', 'creeePar', 'creeeLe', 'valideePar',
+                           'valideeLe', 'derniereValidation'])
+        && texte(n.titre, 1, 60)
+        && n.icone in iconesMission()
+        && entier(n.etoiles, 1, 5)
+        && etapesOk(n.etapes)
+        && cocheesOk(n.cochees, n.etapes)
+        && toutDecoche(n.cochees)
+        && n.statut == 'todo'
+        && n.quotidienne is bool
+        && n.pour is string
+        && exists(chemin(f, 'members', n.pour))
+        && get(chemin(f, 'members', n.pour)).data.role == 'frere'
+        && n.creeePar == request.auth.uid
+        && dateServeur(n.creeeLe)
+        && n.valideePar == null
+        && n.valideeLe == null
+        && n.derniereValidation == null;
+    }
+
+    // Personne aidée : cocher ou décocher une étape d'une mission à faire.
+    function cocherEtape() {
+      return resource.data.statut == 'todo'
+        && seulsChangent(['cochees'])
+        && cocheesOk(request.resource.data.cochees, resource.data.etapes);
+    }
+
+    // Personne aidée : « J'ai fini » (todo → wait), toutes étapes cochées.
+    function terminer() {
+      return resource.data.statut == 'todo'
+        && request.resource.data.statut == 'wait'
+        && seulsChangent(['statut'])
+        && toutCoche(resource.data.cochees);
+    }
+
+    // Tout membre : une mission quotidienne validée un jour précédent revient
+    // « à faire », étapes décochées. Aucune étoile n'est touchée (elles sont
+    // dans les validations et les compteurs). La personne aidée doit pouvoir
+    // le faire elle-même : son téléphone est souvent ouvert le premier le
+    // matin.
+    function remiseQuotidienne() {
+      return resource.data.statut == 'ok'
+        && resource.data.quotidienne == true
+        && jourPasse(resource.data.valideeLe)
+        && request.resource.data.statut == 'todo'
+        && seulsChangent(['statut', 'cochees'])
+        && cocheesOk(request.resource.data.cochees, resource.data.etapes)
+        && toutDecoche(request.resource.data.cochees);
+    }
+
+    // Aidant : « C'est fait ✓ » (wait → ok, ou todo → ok directement). Une
+    // NOUVELLE validation pour cette mission est créée dans le même lot.
+    function valider(f, t) {
+      let n = request.resource.data;
+      let id = n.derniereValidation;
+      return resource.data.statut in ['todo', 'wait']
+        && n.statut == 'ok'
+        && seulsChangent(['statut', 'valideePar', 'valideeLe', 'derniereValidation'])
+        && n.valideePar == request.auth.uid
+        && dateServeur(n.valideeLe)
+        && id is string
+        && !exists(chemin(f, 'validations', id))
+        && existsAfter(chemin(f, 'validations', id))
+        && getAfter(chemin(f, 'validations', id)).data.missionId == t;
+    }
+
+    // Aidant : « Pas encore » (wait → todo), étapes décochées, sans rien
+    // retirer.
+    function pasEncore() {
+      return resource.data.statut == 'wait'
+        && request.resource.data.statut == 'todo'
+        && seulsChangent(['statut', 'cochees'])
+        && cocheesOk(request.resource.data.cochees, resource.data.etapes)
+        && toutDecoche(request.resource.data.cochees);
+    }
+
+    match /families/{f}/tasks/{t} {
+      allow read: if estMembre(f);
+
+      // Créer : un aidant, pour une personne aidée de la famille.
+      allow create: if estAidant(f) && nouvelleMission(f);
+
+      // Modifier : voir les fonctions ci-dessus. La personne aidée ne touche
+      // qu'à SES missions.
+      allow update: if (estAide(f) && resource.data.pour == request.auth.uid
+                        && (cocherEtape() || terminer() || remiseQuotidienne()))
+                    || (estAidant(f)
+                        && (valider(f, t) || pasEncore() || remiseQuotidienne()));
+
+      // Supprimer : un aidant. Les étoiles déjà gagnées restent (elles sont
+      // dans les validations et les compteurs, pas dans la mission).
+      allow delete: if estAidant(f);
+    }
+
+    // =========================================================================
+    // families/{f}/validations/{v} : une ligne par mission validée
+    //   missionId, pour, titre, icone, etoiles, par, le
+    // Recopie exacte de la mission validée, jamais modifiable.
+    // =========================================================================
+
+    function nouvelleValidation(f, v) {
+      let n = request.resource.data;
+      let avant = get(chemin(f, 'tasks', n.missionId));
+      let apres = getAfter(chemin(f, 'tasks', n.missionId));
+      let fiche = chemin(f, 'members', avant.data.pour);
+      return champsExacts(['missionId', 'pour', 'titre', 'icone', 'etoiles', 'par', 'le'])
+        && n.missionId is string
+        // la mission passe à « validée » dans ce lot, en pointant vers v
+        && avant.data.statut in ['todo', 'wait']
+        && apres.data.statut == 'ok'
+        && apres.data.derniereValidation == v
+        // recopie exacte de la mission
+        && n.pour == avant.data.pour
+        && n.titre == avant.data.titre
+        && n.icone == avant.data.icone
+        && n.etoiles == avant.data.etoiles
+        && n.par == request.auth.uid
+        && dateServeur(n.le)
+        // le compteur de la personne aidée augmente du même nombre d'étoiles
+        && getAfter(fiche).data.gagnees == get(fiche).data.gagnees + n.etoiles;
+    }
+
+    match /families/{f}/validations/{v} {
+      allow read: if estMembre(f);
+      allow create: if estAidant(f) && nouvelleValidation(f, v);
+      allow update: if false;
+
+      // Supprimer : seulement si la personne aidée a été retirée de la
+      // famille (dans ce lot ou avant), ou pendant la suppression complète.
+      // Personne ne peut donc retirer des étoiles à une personne aidée.
+      allow delete: if estAidant(f)
+        && (enSuppression(f) || !existsAfter(chemin(f, 'members', resource.data.pour)));
+    }
+
+    // =========================================================================
+    // families/{f}/rewards/{r} : récompenses (communes à la famille)
+    //   titre, icone, prix, archivee, creeeLe
+    // =========================================================================
+
+    function champsRecompense() {
+      return texte(request.resource.data.titre, 1, 40)
+        && request.resource.data.icone in iconesRecompense()
+        && entier(request.resource.data.prix, 1, 99)
+        && request.resource.data.archivee is bool;
+    }
+
+    match /families/{f}/rewards/{r} {
+      allow read: if estMembre(f);
+
+      // Créer : un aidant.
+      allow create: if estAidant(f)
+        && champsExacts(['titre', 'icone', 'prix', 'archivee', 'creeeLe'])
+        && champsRecompense()
+        && request.resource.data.archivee == false
+        && dateServeur(request.resource.data.creeeLe);
+
+      // Modifier (nom, image, prix) ou archiver / remettre : un aidant.
+      // Les demandes déjà faites gardent leur prix.
+      allow update: if estAidant(f)
+        && seulsChangent(['titre', 'icone', 'prix', 'archivee'])
+        && champsRecompense();
+
+      // Supprimer : seulement pendant la suppression complète (sinon, on
+      // archive).
+      allow delete: if estAidant(f) && enSuppression(f);
+    }
+
+    // =========================================================================
+    // families/{f}/redemptions/{d} : demandes de récompense
+    //   recompenseId, titre, icone, prix, statut (asked | given), pour,
+    //   demandeeLe, donneePar, donneeLe
+    // =========================================================================
+
+    function nouvelleDemande(f, d) {
+      let n = request.resource.data;
+      let recompense = get(chemin(f, 'rewards', n.recompenseId));
+      let fiche = chemin(f, 'members', request.auth.uid);
+      return champsExacts(['recompenseId', 'titre', 'icone', 'prix', 'statut', 'pour',
+                           'demandeeLe', 'donneePar', 'donneeLe'])
+        && n.pour == request.auth.uid
+        && n.statut == 'asked'
+        && dateServeur(n.demandeeLe)
+        && n.donneePar == null
+        && n.donneeLe == null
+        // récompense existante, non archivée ; prix = prix actuel
+        && n.recompenseId is string
+        && recompense.data.archivee == false
+        && n.prix == recompense.data.prix
+        && n.titre == recompense.data.titre
+        && n.icone == recompense.data.icone
+        // le compteur « dépensées » augmente du prix dans ce même lot (la
+        // règle des membres vérifie qu'il reste assez d'étoiles)
+        && getAfter(fiche).data.derniereDemande == d
+        && getAfter(fiche).data.depensees == get(fiche).data.depensees + n.prix;
+    }
+
+    match /families/{f}/redemptions/{d} {
+      allow read: if estMembre(f);
+
+      // Créer : la personne aidée, pour elle-même.
+      allow create: if estAide(f) && nouvelleDemande(f, d);
+
+      // Modifier : un aidant marque « Récompense donnée » (asked → given).
+      allow update: if estAidant(f)
+        && resource.data.statut == 'asked'
+        && request.resource.data.statut == 'given'
+        && seulsChangent(['statut', 'donneePar', 'donneeLe'])
+        && request.resource.data.donneePar == request.auth.uid
+        && dateServeur(request.resource.data.donneeLe);
+
+      // Supprimer : comme les validations.
+      allow delete: if estAidant(f)
+        && (enSuppression(f) || !existsAfter(chemin(f, 'members', resource.data.pour)));
+    }
+
+    // =========================================================================
+    // families/{f}/events/{e} : historique, visible par toute la famille
+    //   type, titre, etoiles, auteurUid, auteurNom, pourNom, le
+    // =========================================================================
+
+    // Types qu'une personne aidée peut écrire (ce qu'elle fait elle-même).
+    function typesAide() {
+      return ['membre_rejoint', 'mission_terminee', 'recompense_demandee'];
+    }
+
+    function typesAidant() {
+      return ['famille_creee', 'membre_invite', 'membre_rejoint', 'membre_retire',
+              'mission_creee', 'mission_supprimee', 'mission_validee', 'mission_pas_encore',
+              'recompense_ajoutee', 'recompense_modifiee', 'recompense_archivee',
+              'recompense_remise', 'recompense_donnee'];
+    }
+
+    function nouvelEvenement(f) {
+      let n = request.resource.data;
+      // getAfter : au moment de créer la famille ou de la rejoindre, la fiche
+      // de l'auteur est créée dans le même lot.
+      let auteur = getAfter(chemin(f, 'members', request.auth.uid));
+      return auteur != null
+        && champsExacts(['type', 'titre', 'etoiles', 'auteurUid', 'auteurNom', 'pourNom', 'le'])
+        && ((auteur.data.role == 'aidant' && n.type in typesAidant())
+            || (auteur.data.role == 'frere' && n.type in typesAide()))
+        && n.auteurUid == request.auth.uid
+        && n.auteurNom == auteur.data.prenom
+        && texte(n.titre, 0, 60)
+        && texte(n.pourNom, 0, 30)
+        && (n.etoiles == null || entier(n.etoiles, 0, 99))
+        && dateServeur(n.le);
+    }
+
+    match /families/{f}/events/{e} {
+      allow read: if estMembre(f);
+      allow create: if connecte() && nouvelEvenement(f);
+      // L'historique ne se modifie pas et ne s'efface qu'avec la famille.
+      allow update: if false;
+      allow delete: if estAidant(f) && enSuppression(f);
+    }
+
+    // =========================================================================
+    // Recherches à la connexion (requêtes « groupe de collections ») :
+    //  - retrouver SA fiche de membre, donc sa famille ;
+    //  - retrouver une invitation à SON adresse vérifiée.
+    // Ces règles ne donnent accès qu'à ses propres documents.
+    // =========================================================================
+    match /{cheminComplet=**}/members/{uid} {
+      allow read: if connecte() && resource.data.uid == request.auth.uid;
+    }
+
+    match /{cheminComplet=**}/invites/{email} {
+      allow read: if emailVerifie() && resource.data.email == monEmail();
+    }
+  }
+}

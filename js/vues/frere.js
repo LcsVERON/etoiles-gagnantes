@@ -118,7 +118,19 @@ export const CLICS = {
   },
   objectif: (app, el) => app.faire(A.choisirObjectif, el.dataset.id),
   demander: async (app, el) => {
-    const r = await app.faire(A.demanderRecompense, el.dataset.id);
+    const rec = app.etat.recompenses.find((x) => x.id === el.dataset.id);
+    if (!rec) return;
+    const reste = Math.max(0, L.donneesAide(app.etat, app.etat.moi.id).solde - rec.prix);
+    const oui = await app.ui.confirmer({
+      grand: true,
+      icone: icone(rec.icone),
+      titre: `Tu veux : ${rec.titre} ?`,
+      texte: `Ça coûte ${etoiles(rec.prix)}. Après, il te reste ${etoiles(reste)}.`,
+      oui: 'Oui, je veux',
+      non: 'Non, pas maintenant',
+    });
+    if (!oui) return;
+    const r = await app.faire(A.demanderRecompense, rec.id);
     if (r.ok) app.ui.toast('Ta demande est envoyée à la famille.');
   },
 };
