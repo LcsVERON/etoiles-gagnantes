@@ -13,8 +13,13 @@
 //                   étoiles gagnées (voir calculerSolde).
 //   recompense  : { id, titre, icone, prix, archivee }
 //   demande     : { id, recompenseId, titre, icone, prix, statut: 'asked'|'given' }
-//   evenement   : { type, titre, etoiles, auteurUid, auteurNom } (+ date ajoutée
-//                 par la couche de stockage)
+//   evenement   : { type, titre, etoiles, auteurUid, auteurNom, pourNom }
+//                 (+ date ajoutée par la couche de stockage)
+//
+// Une famille peut compter plusieurs aidants et plusieurs personnes aidées
+// (rôle 'frere'). Missions, validations et demandes portent le champ `pour`
+// (identifiant de la personne aidée) : chaque personne aidée a son propre solde.
+// Le catalogue de récompenses est commun à toute la famille.
 
 // ---------------------------------------------------------------------------
 // Constantes partagées (les mêmes limites seront reprises dans firestore.rules)
@@ -30,6 +35,7 @@ export const LIMITES = Object.freeze({
   prixMin: 1,
   prixMax: 99,
   prenom: 30,
+  nomFamille: 40,
   email: 254,
 });
 
@@ -218,6 +224,22 @@ export function missionsDuFrere(missions) {
     .filter((m) => m.statut === 'todo' || m.statut === 'wait')
     .sort((a, b) => (rang[a.statut] - rang[b.statut])
       || ((enMillis(b.creeeLe) ?? Infinity) - (enMillis(a.creeeLe) ?? Infinity)));
+}
+
+/**
+ * Données d'une personne aidée, extraites de l'état de la famille :
+ * ses missions, ses validations, ses demandes et son solde.
+ */
+export function donneesAide(etat, uid) {
+  const pourElle = (x) => x.pour === uid;
+  const validations = (etat.validations || []).filter(pourElle);
+  const demandes = (etat.demandes || []).filter(pourElle);
+  return {
+    missions: (etat.missions || []).filter(pourElle),
+    validations,
+    demandes,
+    solde: calculerSolde({ validations, demandes }),
+  };
 }
 
 /** Pastilles de la barre du bas. */
@@ -412,32 +434,38 @@ export const TYPES_EVENEMENT = Object.freeze([
   'famille_creee',
   'membre_invite',
   'membre_rejoint',
+  'membre_retire',
   'mission_creee',
+  'mission_supprimee',
   'mission_terminee',
   'mission_validee',
   'mission_pas_encore',
   'recompense_ajoutee',
   'recompense_modifiee',
   'recompense_archivee',
+  'recompense_remise',
   'recompense_demandee',
   'recompense_donnee',
 ]);
 
 /**
  * Prépare un événement d'historique. La date est ajoutée par la couche de
- * stockage (date serveur). `auteur` = { uid, prenom }.
+ * stockage (date serveur). `auteur` = { id, prenom } (membre qui agit).
  *   titre   : titre de la mission ou de la récompense, ou prénom de l'invité
  *   etoiles : nombre d'étoiles concerné, ou null
+ *   pourNom : prénom de la personne aidée concernée, ou ''
  */
-export function preparerEvenement(type, { titre = '', etoiles = null, auteur } = {}) {
+export function preparerEvenement(type, { titre = '', etoiles = null, auteur, pourNom = '' } = {}) {
   if (!TYPES_EVENEMENT.includes(type)) throw new Error(`Type d'événement inconnu : ${type}`);
-  if (!auteur || !auteur.uid) throw new Error('Auteur manquant');
+  const auteurUid = auteur && (auteur.id || auteur.uid);
+  if (!auteurUid) throw new Error('Auteur manquant');
   return {
     type,
     titre: nettoyer(titre).slice(0, LIMITES.titreMission),
     etoiles: Number.isInteger(etoiles) ? etoiles : null,
-    auteurUid: auteur.uid,
+    auteurUid,
     auteurNom: nettoyer(auteur.prenom).slice(0, LIMITES.prenom),
+    pourNom: nettoyer(pourNom).slice(0, LIMITES.prenom),
   };
 }
 
@@ -447,19 +475,25 @@ export function texteEvenement(evt) {
   const t = evt.titre;
   const n = evt.etoiles;
   const etoiles = Number.isInteger(n) ? `${n} ${pluriel(n, 'étoile')}` : '';
+  const pour = evt.pourNom ? `${evt.pourNom} : ` : '';
+  // « Alex : récompense donnée » ou « Récompense donnée » (majuscule en début de phrase)
+  const debut = (mot) => (pour ? `${pour}${mot}` : mot.charAt(0).toUpperCase() + mot.slice(1));
   switch (evt.type) {
     case 'famille_creee': return `${nom} a créé la famille`;
     case 'membre_invite': return `${nom} a invité ${t}`;
     case 'membre_rejoint': return `${nom} a rejoint la famille`;
-    case 'mission_creee': return `Nouvelle mission : « ${t} »`;
+    case 'membre_retire': return `${nom} a retiré ${t} de la famille`;
+    case 'mission_creee': return `${evt.pourNom ? `Nouvelle mission pour ${evt.pourNom}` : 'Nouvelle mission'} : « ${t} »`;
+    case 'mission_supprimee': return `${debut('mission')} « ${t} » supprimée`;
     case 'mission_terminee': return `${nom} a fini « ${t} »`;
-    case 'mission_validee': return `« ${t} » validée, +${etoiles}`;
-    case 'mission_pas_encore': return `« ${t} » : pas encore, renvoyée gentiment`;
+    case 'mission_validee': return `${pour}« ${t} » validée, +${etoiles}`;
+    case 'mission_pas_encore': return `${pour}« ${t} » : pas encore, renvoyée gentiment`;
     case 'recompense_ajoutee': return `Nouvelle récompense : ${t} (${etoiles})`;
     case 'recompense_modifiee': return `Récompense modifiée : ${t}`;
     case 'recompense_archivee': return `Récompense retirée de la liste : ${t}`;
+    case 'recompense_remise': return `Récompense remise dans la liste : ${t}`;
     case 'recompense_demandee': return `${nom} demande : ${t} (−${etoiles})`;
-    case 'recompense_donnee': return `Récompense donnée : ${t}`;
+    case 'recompense_donnee': return `${debut('récompense')} donnée : ${t}`;
     default: return '';
   }
 }

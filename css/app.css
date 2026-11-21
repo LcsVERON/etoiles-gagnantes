@@ -1,0 +1,182 @@
+/* css/app.css — repris du prototype (docs/prototype.html).
+   VOIX : encourageante, très peu de mots, jamais de reproche
+   IDÉE : une carte de fidélité qu'on remplit d'étoiles, puis qu'on échange
+   COULEURS : blanc, bleu nuit pour agir, jaune soleil pour les étoiles
+   MISE EN PAGE : une colonne de téléphone ; onglets en bas
+   Côté personne aidée (body.vue-frere) : texte ≥ 20 px, zones tactiles ≥ 56 px. */
+
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#ffffff, #12151a);
+  --card: light-dark(#f1f4f9, #1d222a);
+  --line: light-dark(#dfe5ee, #2c333d);
+  --ink: light-dark(#10151c, #f2f5f8);
+  --soft: light-dark(#4d5664, #b6bfcb);
+  --act: light-dark(#1d3f9e, #6f95ff);
+  --actInk: light-dark(#ffffff, #0b1020);
+  --star: #f5b301;
+  --starBg: light-dark(#fff6d6, #3a3010);
+  --ok: light-dark(#11743a, #4fd07a);
+  --okInk: light-dark(#ffffff, #07210f);
+  --okBg: light-dark(#e5f6eb, #13301e);
+  --danger: light-dark(#b3261e, #ff8a80);
+  --dangerInk: light-dark(#ffffff, #2a0705);
+  /* fond des icônes : toujours clair, pour que les dessins restent lisibles en mode sombre */
+  --tile: light-dark(#ffffff, #e9edf3);
+}
+
+* { box-sizing: border-box; min-width: 0; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 19px/1.4 "Atkinson Hyperlegible", Verdana, sans-serif;
+  overflow-x: clip;
+}
+body.vue-frere { font-size: 21px; }
+
+button, input, textarea, select { font-family: inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visible {
+  outline: 4px solid var(--act);
+  outline-offset: 3px;
+}
+
+main { max-width: 560px; margin: 0 auto; padding: 14px 16px 120px; }
+h1 { font-size: 32px; line-height: 1.1; margin: 6px 0 12px; }
+h2 { font-size: 22px; margin: 26px 0 10px; }
+h3 { font-size: 19px; margin: 18px 0 8px; }
+a { color: var(--act); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- barre du mode démo ---------- */
+.top { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line); padding: 8px 16px; }
+.top .in { max-width: 560px; margin: 0 auto; }
+.demo-titre { margin: 0 0 6px; font-size: 15px; color: var(--soft); }
+.demo-ligne { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 15px; }
+.demo-ligne label { font-weight: 700; flex-basis: 100%; margin: 0; }
+.demo-ligne select { flex: 1; min-height: 44px; font-size: 16px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); padding: 0 8px; }
+.petit { min-height: 44px; padding: 0 12px; border-radius: 10px; border: 2px solid var(--act); background: transparent; color: var(--act); font-size: 15px; font-weight: 700; cursor: pointer; }
+
+/* ---------- icônes ---------- */
+.ic { border-radius: 16px; background: var(--tile); display: grid; place-items: center; }
+.ic svg { width: 70%; height: 70%; }
+.etoile { width: 1em; height: 1em; vertical-align: -0.12em; }
+
+/* ---------- jauge de l'objectif ---------- */
+.goal { background: var(--starBg); border-radius: 24px; padding: 16px; display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; align-items: center; }
+.goal.vide { display: block; text-align: center; }
+.goal .ic { width: 84px; height: 84px; border-radius: 20px; }
+.goal b { font-size: 24px; display: block; line-height: 1.15; }
+.goal .encore { margin: 2px 0 0; font-size: 20px; color: var(--soft); }
+.goal .encore strong { color: var(--ink); font-size: 24px; }
+.stars { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.stars .etoile { width: 26px; height: 26px; }
+.total { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 28px; font-weight: 700; margin: 14px 0 4px; }
+.total .etoile { width: 36px; height: 36px; }
+.intro { text-align: center; color: var(--soft); margin: 0 0 14px; }
+
+/* ---------- cartes missions ---------- */
+.task { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; text-align: left; background: var(--card); border: 0; border-radius: 20px; padding: 12px; margin-bottom: 10px; color: var(--ink); cursor: pointer; font-size: 22px; font-weight: 700; min-height: 88px; }
+.task .ic { width: 64px; height: 64px; }
+.pts { display: inline-flex; align-items: center; gap: 4px; background: var(--starBg); color: var(--ink); border-radius: 12px; padding: 6px 10px; font-size: 20px; font-weight: 700; white-space: nowrap; }
+.pts .etoile { width: 22px; height: 22px; }
+.tag { display: block; font-size: 20px; font-weight: 400; color: var(--soft); margin-top: 2px; }
+.task.wait { opacity: .8; }
+.empty { color: var(--soft); text-align: center; padding: 18px; background: var(--card); border-radius: 18px; margin: 0 0 10px; }
+
+/* ---------- détail d'une mission ---------- */
+.hero { text-align: center; padding: 10px 0; }
+.hero .ic { width: 110px; height: 110px; margin: 0 auto 6px; border-radius: 26px; }
+.step { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; min-height: 72px; border: 3px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 18px; padding: 10px 14px; margin-bottom: 10px; font-size: 22px; cursor: pointer; }
+.step .box { flex: none; width: 40px; height: 40px; border-radius: 10px; border: 3px solid var(--soft); display: grid; place-items: center; font-size: 26px; font-weight: 700; color: var(--okInk); }
+.step.done { border-color: var(--ok); background: var(--okBg); }
+.step.done .box { background: var(--ok); border-color: var(--ok); }
+.step.done .texte { text-decoration: line-through; color: var(--soft); }
+.step:disabled { cursor: default; }
+.indice { text-align: center; color: var(--soft); margin: 4px 0 0; }
+.big { display: block; width: 100%; min-height: 72px; border: 0; border-radius: 20px; background: var(--act); color: var(--actInk); font-size: 26px; font-weight: 700; line-height: 1.1; cursor: pointer; margin-top: 12px; padding: 8px 12px; }
+.big:disabled { opacity: .35; cursor: default; }
+.ghost { display: block; width: 100%; min-height: 56px; border: 3px solid var(--line); border-radius: 16px; background: transparent; color: var(--ink); font-size: 20px; font-weight: 700; cursor: pointer; margin-top: 10px; }
+
+/* ---------- récompenses (personne aidée) ---------- */
+.rew { background: var(--card); border-radius: 20px; padding: 12px; margin-bottom: 10px; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: center; }
+.rew .ic { width: 64px; height: 64px; }
+.rew b { font-size: 22px; }
+.meter { height: 14px; border-radius: 7px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; margin: 6px 0; }
+.meter i { display: block; height: 100%; width: 0; background: var(--star); border-radius: 7px; }
+.rew button { grid-column: 1 / -1; min-height: 60px; border: 0; border-radius: 14px; background: var(--act); color: var(--actInk); font-size: 21px; font-weight: 700; cursor: pointer; }
+.rew button.sel { background: transparent; border: 3px solid var(--act); color: var(--act); cursor: default; }
+.rew .state { grid-column: 1 / -1; text-align: center; font-weight: 700; color: var(--ok); margin: 4px 0; }
+
+/* ---------- barre du bas ---------- */
+.nav { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg); border-top: 1px solid var(--line); padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); z-index: 5; }
+.nav .in { max-width: 560px; margin: 0 auto; display: flex; gap: 6px; }
+.nav button { flex: 1; min-height: 60px; border: 0; border-radius: 14px; background: transparent; color: var(--soft); font-size: 15px; font-weight: 700; line-height: 1.1; cursor: pointer; position: relative; padding: 4px; }
+.nav button { hyphens: auto; overflow-wrap: anywhere; }
+@media (max-width: 400px) { .nav button { font-size: 14px; } }
+.vue-frere .nav button { font-size: 20px; min-height: 64px; }
+.nav button[aria-current="page"] { background: var(--card); color: var(--act); }
+.nav .dot { position: absolute; top: 4px; right: 6px; min-width: 24px; height: 24px; border-radius: 12px; background: #d23b3b; color: #fff; font-size: 14px; display: grid; place-items: center; padding: 0 6px; }
+
+/* ---------- vue famille ---------- */
+.row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; align-items: center; background: var(--card); border-radius: 18px; padding: 12px; margin-bottom: 10px; }
+.row .ic { width: 52px; height: 52px; border-radius: 14px; }
+.row .info { font-size: 16px; color: var(--soft); display: block; overflow-wrap: anywhere; }
+.row.liste { grid-template-columns: minmax(0, 1fr); }
+.row .acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.row .acts button { flex: 1; }
+.row.simple { grid-template-columns: minmax(0, 1fr) auto; }
+.row.simple .acts { grid-column: auto; }
+.row .acts.droite { justify-content: flex-end; }
+.row .acts.droite button { flex: none; min-height: 44px; font-size: 15px; }
+.acts button, .yes, .no, .danger { min-height: 50px; border-radius: 12px; border: 0; font-size: 17px; font-weight: 700; cursor: pointer; padding: 0 14px; }
+.yes { background: var(--ok); color: var(--okInk); }
+.no { background: transparent; border: 2px solid var(--line) !important; color: var(--ink); }
+.danger { background: var(--danger); color: var(--dangerInk); }
+.danger.large { width: 100%; min-height: 56px; }
+.statut { display: inline-block; font-size: 15px; font-weight: 700; border-radius: 8px; padding: 2px 8px; margin-top: 4px; background: var(--bg); border: 1px solid var(--line); }
+.statut.attente { border-color: var(--act); color: var(--act); }
+.statut.faite { border-color: var(--ok); color: var(--ok); }
+.hist { font-size: 16px; color: var(--soft); border-left: 3px solid var(--line); padding: 2px 0 2px 10px; margin: 6px 0; }
+.aide { font-size: 16px; color: var(--soft); }
+
+fieldset { border: 0; padding: 0; margin: 16px 0 0; }
+legend, label { display: block; font-weight: 700; font-size: 17px; margin: 16px 0 6px; padding: 0; }
+legend { margin-top: 0; }
+input:not([type=checkbox]):not([type=radio]), textarea {
+  width: 100%; font-size: 17px; padding: 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--ink);
+}
+textarea { min-height: 110px; resize: vertical; }
+input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--danger); }
+.case { display: flex; gap: 12px; align-items: center; font-weight: 400; min-height: 48px; margin: 8px 0; cursor: pointer; }
+.case input { width: 26px; height: 26px; flex: none; accent-color: var(--act); }
+.erreur { color: var(--danger); font-weight: 700; margin: 10px 0 0; min-height: 0; }
+.erreur:empty { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button { min-height: 52px; min-width: 52px; padding: 0 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); font-size: 17px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.chips button .ic { width: 38px; height: 38px; border-radius: 8px; background: transparent; }
+.chips button .ic svg { width: 100%; height: 100%; }
+.chips button[aria-pressed="true"] { border-color: var(--act); background: var(--card); outline: 2px solid var(--act); }
+.chips button[aria-pressed="true"]::after { content: "✓"; color: var(--act); }
+details { margin-top: 18px; }
+summary { cursor: pointer; font-weight: 700; min-height: 48px; display: flex; align-items: center; }
+.plus { background: transparent; border: 0; color: var(--act); font-weight: 700; font-size: 16px; min-height: 44px; cursor: pointer; padding: 0; }
+
+/* ---------- message bref, fête, confirmation ---------- */
+.toast { position: fixed; left: 50%; top: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 14px 18px; border-radius: 16px; font-weight: 700; z-index: 40; width: max-content; max-width: calc(100vw - 32px); box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+dialog { border: 0; padding: 0; background: transparent; color: var(--ink); max-width: calc(100vw - 32px); width: 420px; }
+dialog::backdrop { background: rgba(0, 0, 0, .55); }
+dialog .box { background: var(--bg); border-radius: 28px; padding: 26px 20px; text-align: center; }
+dialog.party h1 { font-size: 40px; margin: 8px 0; }
+dialog.party .ligne { font-size: 22px; margin: 0 0 10px; }
+.etoile-fete { width: 90px; height: 90px; }
+dialog.confirm .box { text-align: left; }
+dialog.confirm h2 { margin-top: 0; }
+dialog.confirm .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+dialog.confirm .acts button { flex: 1; min-height: 56px; }
+@media (prefers-reduced-motion: no-preference) {
+  dialog.party .box { animation: pop .4s ease-out; }
+  @keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+}

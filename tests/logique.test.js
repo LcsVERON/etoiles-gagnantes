@@ -179,6 +179,21 @@ describe('liste et compteurs', () => {
   });
 });
 
+describe('plusieurs personnes aidées', () => {
+  test('donneesAide sépare les missions et les soldes', () => {
+    const etat = {
+      missions: [mission({ id: 'a', pour: 'x' }), mission({ id: 'b', pour: 'y' })],
+      validations: [{ pour: 'x', etoiles: 5 }, { pour: 'y', etoiles: 2 }, { pour: 'x', etoiles: 1 }],
+      demandes: [{ pour: 'x', prix: 4, statut: 'asked' }, { pour: 'y', prix: 1, statut: 'given' }],
+    };
+    const x = L.donneesAide(etat, 'x');
+    assert.deepEqual(x.missions.map((m) => m.id), ['a']);
+    assert.equal(x.solde, 2);
+    assert.equal(L.donneesAide(etat, 'y').solde, 1);
+    assert.equal(L.donneesAide({}, 'z').solde, 0);
+  });
+});
+
 describe('récompenses et demandes', () => {
   const R = [
     { id: 'r1', titre: 'Cinéma', icone: 'cinema', prix: 15 },
@@ -310,7 +325,7 @@ describe('saisies des aidants', () => {
     assert.equal(L.normaliserEmail('  Prenom.Nom@Example.COM '), 'prenom.nom@example.com');
     assert.equal(L.normaliserEmail('pas-une-adresse'), null);
     assert.equal(L.normaliserEmail('a@b'), null);
-    assert.equal(L.normaliserEmail('a/b@c.com'), null, 'pas de « / » (identifiant de document)');
+    assert.equal(L.normaliserEmail('a/b@example.com'), null, 'pas de « / » (identifiant de document)');
     assert.deepEqual(L.preparerInvitation({ email: 'A@example.com', role: 'frere', prenom: ' Aidant A ' }),
       { ok: true, invitation: { email: 'a@example.com', role: 'frere', prenom: 'Aidant A' } });
     const r = L.preparerInvitation({ email: 'x', role: 'admin', prenom: '' });
@@ -319,13 +334,14 @@ describe('saisies des aidants', () => {
 });
 
 describe('historique', () => {
-  const auteur = { uid: 'u1', prenom: 'Aidant A' };
+  const auteur = { id: 'u1', prenom: 'Aidant A' };
 
   test('preparerEvenement donne une forme fixe', () => {
     assert.deepEqual(L.preparerEvenement('mission_validee', { titre: 'Ranger', etoiles: 3, auteur }),
-      { type: 'mission_validee', titre: 'Ranger', etoiles: 3, auteurUid: 'u1', auteurNom: 'Aidant A' });
+      { type: 'mission_validee', titre: 'Ranger', etoiles: 3, auteurUid: 'u1', auteurNom: 'Aidant A', pourNom: '' });
     assert.deepEqual(L.preparerEvenement('famille_creee', { auteur }),
-      { type: 'famille_creee', titre: '', etoiles: null, auteurUid: 'u1', auteurNom: 'Aidant A' });
+      { type: 'famille_creee', titre: '', etoiles: null, auteurUid: 'u1', auteurNom: 'Aidant A', pourNom: '' });
+    assert.equal(L.preparerEvenement('famille_creee', { auteur: { uid: 'u2', prenom: 'B' } }).auteurUid, 'u2', 'accepte aussi uid');
   });
 
   test('preparerEvenement refuse un type inconnu ou un auteur manquant', () => {
@@ -353,6 +369,10 @@ describe('historique', () => {
     assert.equal(e('mission_pas_encore', { titre: 'Ranger' }), '« Ranger » : pas encore, renvoyée gentiment');
     assert.equal(e('recompense_demandee', { titre: 'Glace', etoiles: 10 }), 'Aidant A demande : Glace (−10 étoiles)');
     assert.equal(e('recompense_donnee', { titre: 'Glace' }), 'Récompense donnée : Glace');
+    assert.equal(e('recompense_donnee', { titre: 'Glace', pourNom: 'Alex' }), 'Alex : récompense donnée : Glace');
+    assert.equal(e('mission_validee', { titre: 'Ranger', etoiles: 2, pourNom: 'Alex' }), 'Alex : « Ranger » validée, +2 étoiles');
+    assert.equal(e('mission_creee', { titre: 'Ranger', pourNom: 'Alex' }), 'Nouvelle mission pour Alex : « Ranger »');
+    assert.equal(e('mission_supprimee', { titre: 'Ranger' }), 'Mission « Ranger » supprimée');
   });
 
   test('libelleJour et ligneHistorique', () => {

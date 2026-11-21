@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mes missions</title>
+<meta name="description" content="Missions, étoiles et récompenses en famille.">
+<meta name="theme-color" content="#1d3f9e">
+<link rel="stylesheet" href="css/app.css">
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+
+<header class="top" id="haut" hidden>
+  <div class="in demo">
+    <p class="demo-titre"><strong>Mode démo</strong> : rien n'est enregistré. <span id="demoJour"></span></p>
+    <div class="demo-ligne">
+      <label for="demoQui">Voir l'appli comme</label>
+      <select id="demoQui"></select>
+      <button type="button" class="petit" data-clic="demoDemain">Lendemain →</button>
+    </div>
+  </div>
+</header>
+
+<main id="principal">
+  <p id="chargement" class="empty">Chargement…</p>
+
+  <!-- Écran sans famille (démo vidée ; à l'étape 4 : connexion et création) -->
+  <section id="e-vide" class="ecran" hidden></section>
+
+  <!-- =================== PERSONNE AIDÉE =================== -->
+  <section id="e-f-missions" class="ecran" hidden>
+    <div class="goal" id="fObjectif"></div>
+    <h2>Mes missions</h2>
+    <div id="fMissions"></div>
+  </section>
+
+  <section id="e-f-mission" class="ecran" hidden></section>
+
+  <section id="e-f-recompenses" class="ecran" hidden>
+    <h1>Mes récompenses</h1>
+    <div class="total" id="fTotal"></div>
+    <p class="intro">Choisis ce que tu veux gagner.</p>
+    <div id="fRecompenses"></div>
+  </section>
+
+  <!-- =================== FAMILLE (AIDANTS) =================== -->
+  <section id="e-a-valider" class="ecran" hidden>
+    <h1>À valider</h1>
+    <div id="aValider"></div>
+    <h2>Récompenses demandées</h2>
+    <div id="aDemandes"></div>
+    <h2>Ce qui s'est passé</h2>
+    <div id="aHistorique"></div>
+  </section>
+
+  <section id="e-a-missions" class="ecran" hidden>
+    <h1>Nouvelle mission</h1>
+    <form id="formMission" novalidate>
+      <fieldset>
+        <legend>Pour qui ?</legend>
+        <div class="chips" id="nPour"></div>
+      </fieldset>
+      <label for="nTitre">Titre (court)</label>
+      <input id="nTitre" maxlength="60" autocomplete="off" placeholder="Ex. : Arroser les plantes">
+      <fieldset>
+        <legend>Image</legend>
+        <div class="chips" id="nIcone"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Étoiles gagnées</legend>
+        <div class="chips" id="nEtoiles"></div>
+      </fieldset>
+      <label for="nEtapes">Étapes (une par ligne, facultatif)</label>
+      <textarea id="nEtapes" placeholder="Remplir l'arrosoir&#10;Arroser chaque plante&#10;Ranger l'arrosoir"></textarea>
+      <label class="case"><input type="checkbox" id="nQuotidienne"> <span>À refaire chaque jour</span></label>
+      <p class="erreur" id="nErreur" role="alert"></p>
+      <button class="big" type="submit">Envoyer</button>
+    </form>
+    <h2>Missions en cours</h2>
+    <div id="aMissions"></div>
+  </section>
+
+  <section id="e-a-recompenses" class="ecran" hidden>
+    <h1>Récompenses</h1>
+    <div id="aRecompenses"></div>
+    <details id="aArchivees" hidden>
+      <summary>Récompenses archivées</summary>
+      <div id="aArchiveesListe"></div>
+    </details>
+    <h2 id="rTitreForm">Ajouter une récompense</h2>
+    <form id="formRecompense" novalidate>
+      <label for="rTitre">Nom</label>
+      <input id="rTitre" maxlength="40" autocomplete="off" placeholder="Ex. : Bowling">
+      <fieldset>
+        <legend>Image</legend>
+        <div class="chips" id="rIcone"></div>
+      </fieldset>
+      <label for="rPrix">Prix en étoiles (1 à 99)</label>
+      <input id="rPrix" type="number" min="1" max="99" value="12" inputmode="numeric">
+      <p class="erreur" id="rErreur" role="alert"></p>
+      <button class="big" type="submit" id="rValider">Ajouter</button>
+      <button class="ghost" type="button" id="rAnnuler" hidden>Annuler la modification</button>
+    </form>
+  </section>
+
+  <section id="e-a-famille" class="ecran" hidden>
+    <h1>Famille</h1>
+    <h2>Aidants</h2>
+    <div id="aAidants"></div>
+    <h2>Personnes aidées</h2>
+    <div id="aAides"></div>
+    <h2>Invitations en attente</h2>
+    <div id="aInvitations"></div>
+
+    <h2>Inviter quelqu'un</h2>
+    <form id="formInvitation" novalidate>
+      <label for="iPrenom">Prénom (affiché dans l'appli)</label>
+      <input id="iPrenom" maxlength="30" autocomplete="off">
+      <label for="iEmail">Adresse e-mail</label>
+      <input id="iEmail" type="email" maxlength="254" autocomplete="off" inputmode="email">
+      <fieldset>
+        <legend>Rôle</legend>
+        <label class="case"><input type="radio" name="iRole" value="aidant"> <span>Aidant : envoie et valide les missions</span></label>
+        <label class="case"><input type="radio" name="iRole" value="frere"> <span>Personne aidée : fait les missions et gagne des étoiles</span></label>
+      </fieldset>
+      <p class="aide">La personne rejoint la famille la première fois qu'elle se connecte avec cette adresse.</p>
+      <p class="erreur" id="iErreur" role="alert"></p>
+      <button class="big" type="submit">Inviter</button>
+    </form>
+
+    <h2>Toutes les données</h2>
+    <p class="aide">Supprime la famille, ses membres, les missions, les étoiles, les récompenses et l'historique. C'est définitif.</p>
+    <button class="danger large" type="button" data-clic="supprimerTout">Supprimer toutes les données</button>
+  </section>
+</main>
+
+<nav class="nav" id="barreNav" aria-label="Menu" hidden><div class="in" id="nav"></div></nav>
+<dialog id="dialogue"></dialog>
+
+</body>
+</html>
