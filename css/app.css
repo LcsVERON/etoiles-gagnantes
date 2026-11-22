@@ -5,6 +5,23 @@
    MISE EN PAGE : une colonne de téléphone ; onglets en bas
    Côté personne aidée (body.vue-frere) : texte ≥ 20 px, zones tactiles ≥ 56 px. */
 
+/* Police Atkinson Hyperlegible, stockée dans fonts/ (licence SIL OFL 1.1,
+   voir fonts/OFL.txt). Sous-ensemble « latin » : couvre le français. */
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/atkinson-hyperlegible-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/atkinson-hyperlegible-700.woff2") format("woff2");
+}
+
 :root {
   color-scheme: light dark;
   --bg: light-dark(#ffffff, #12151a);
@@ -184,3 +201,12 @@ dialog.confirm.grand .ic { width: 96px; height: 96px; margin: 0 auto; border-rad
   dialog.party .box { animation: pop .4s ease-out; }
   @keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
 }
+
+/* ---------- liens légaux et pages légales ---------- */
+.legal { margin: 32px 0 0; text-align: center; font-size: 14px; color: var(--soft); }
+.legal a { color: var(--soft); }
+.page-legale main { padding-bottom: 40px; }
+.page-legale h2 { font-size: 20px; }
+.page-legale p, .page-legale li { font-size: 17px; }
+.page-legale .retour { display: inline-block; margin: 8px 0 4px; font-weight: 700; }
+.page-legale .a-completer { background: var(--starBg); padding: 0 4px; border-radius: 4px; }

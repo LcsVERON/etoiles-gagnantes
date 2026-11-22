@@ -275,5 +275,10 @@ stockage.abonner((etat) => {
   verifierFete();
 });
 
+// Service worker : ouverture de l'appli sans connexion (voir sw.js).
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch((e) => console.warn('Service worker non installé', e));
+}
+
 // Si l'appli reste ouverte après minuit : remise à zéro et dates à jour.
 setInterval(() => { rendre(); verifierRemises(); }, 5 * 60 * 1000);

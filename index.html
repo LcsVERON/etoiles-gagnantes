@@ -3,9 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--
+  Politique de sécurité du contenu (CSP) : la page ne peut charger que ses
+  propres fichiers, et parler qu'aux services Google listés. Détail et
+  justification de chaque domaine : DEVELOPPEMENT.md.
+  À ADAPTER : remplacer « remplacer-par-ton-projet » par l'identifiant du projet
+  Firebase (le même que authDomain dans js/firebase-config.js).
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://127.0.0.1:8080 http://127.0.0.1:9099; frame-src https://remplacer-par-ton-projet.firebaseapp.com http://127.0.0.1:9099; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title>Mes missions</title>
 <meta name="description" content="Missions, étoiles et récompenses en famille.">
 <meta name="theme-color" content="#1d3f9e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icone.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icone-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/atkinson-hyperlegible-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/atkinson-hyperlegible-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/app.css">
 <script type="module" src="js/app.js"></script>
 </head>
@@ -194,6 +208,7 @@
     <h2>Toutes les données</h2>
     <p class="aide">Supprime la famille, ses membres, les missions, les étoiles, les récompenses et l'historique. C'est définitif.</p>
     <button class="danger large" type="button" data-clic="supprimerTout">Supprimer toutes les données</button>
+    <p class="legal"><a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a></p>
   </section>
 </main>
 
