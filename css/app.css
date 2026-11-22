@@ -209,4 +209,3 @@ dialog.confirm.grand .ic { width: 96px; height: 96px; margin: 0 auto; border-rad
 .page-legale h2 { font-size: 20px; }
 .page-legale p, .page-legale li { font-size: 17px; }
 .page-legale .retour { display: inline-block; margin: 8px 0 4px; font-weight: 700; }
-.page-legale .a-completer { background: var(--starBg); padding: 0 4px; border-radius: 4px; }

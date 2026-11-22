@@ -34,8 +34,8 @@ import { preparerLot, ecrireLots, supprimeLaFamille, TAILLE_LOT } from './lots.j
 const fs = { doc, writeBatch, serverTimestamp, increment };
 
 // Mémorisé sur l'appareil (localStorage) :
-const CLE_EMAIL = 'mes-missions:email-connexion'; // adresse en attente du lien e-mail
-const cleFamille = (uid) => `mes-missions:famille:${uid}`; // famille de ce compte
+const CLE_EMAIL = 'etoiles-gagnantes:email-connexion'; // adresse en attente du lien e-mail
+const cleFamille = (uid) => `etoiles-gagnantes:famille:${uid}`; // famille de ce compte
 
 /** Nombre de validations lues pour la fête « +N étoiles » (les plus récentes). */
 const VALIDATIONS_LUES = 50;

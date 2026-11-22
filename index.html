@@ -7,11 +7,12 @@
   Politique de sécurité du contenu (CSP) : la page ne peut charger que ses
   propres fichiers, et parler qu'aux services Google listés. Détail et
   justification de chaque domaine : DEVELOPPEMENT.md.
-  À ADAPTER : remplacer « remplacer-par-ton-projet » par l'identifiant du projet
-  Firebase (le même que authDomain dans js/firebase-config.js).
+  À VÉRIFIER : frame-src contient l'identifiant du projet Firebase
+  (https://<identifiant>.firebaseapp.com), le même que authDomain dans
+  js/firebase-config.js. npm test vérifie que les deux correspondent.
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://127.0.0.1:8080 http://127.0.0.1:9099; frame-src https://remplacer-par-ton-projet.firebaseapp.com http://127.0.0.1:9099; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
-<title>Mes missions</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://127.0.0.1:8080 http://127.0.0.1:9099; frame-src https://etoiles-gagnantes.firebaseapp.com http://127.0.0.1:9099; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title>Étoiles gagnantes</title>
 <meta name="description" content="Missions, étoiles et récompenses en famille.">
 <meta name="theme-color" content="#1d3f9e">
 <link rel="manifest" href="manifest.webmanifest">
@@ -44,13 +45,13 @@
 
   <!-- =================== AVANT D'ENTRER DANS UNE FAMILLE =================== -->
   <section id="e-config" class="ecran" hidden>
-    <h1>Mes missions</h1>
+    <h1>Étoiles gagnantes</h1>
     <p>L'appli n'est pas encore reliée à Firebase : la configuration est à compléter dans le fichier <code>js/firebase-config.js</code>.</p>
     <p><a href="#demo">Voir la démo</a></p>
   </section>
 
   <section id="e-connexion" class="ecran" hidden>
-    <h1>Mes missions</h1>
+    <h1>Étoiles gagnantes</h1>
     <p class="intro">Connecte-toi pour retrouver ta famille.</p>
     <button class="big" type="button" data-clic="connexionGoogle">Continuer avec Google</button>
     <h2>Ou avec un lien par e-mail</h2>

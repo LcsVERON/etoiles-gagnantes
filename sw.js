@@ -11,7 +11,7 @@
 // FICHIERS : tout ce qu'il faut pour démarrer hors connexion. Un test
 // (tests/pwa.test.js) vérifie que cette liste est complète et exacte.
 
-const CACHE = 'mes-missions';
+const CACHE = 'etoiles-gagnantes';
 const DELAI_RESEAU = 3000;
 
 const FICHIERS = [

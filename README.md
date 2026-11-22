@@ -1,4 +1,4 @@
-# Mes missions
+# Étoiles gagnantes
 
 Application web familiale (PWA) pour encourager une personne en situation de
 handicap au quotidien. La famille lui envoie des **missions** découpées en

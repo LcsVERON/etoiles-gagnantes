@@ -94,10 +94,10 @@ describe('CSP de l\'appli', () => {
   });
 
   test('cadre de connexion : le domaine du projet Firebase (cohérent avec js/firebase-config.js)', () => {
-    const attendu = configurationComplete
-      ? `https://${firebaseConfig.authDomain}`
-      : 'https://remplacer-par-ton-projet.firebaseapp.com';
-    assert.ok(c['frame-src'].includes(attendu), `frame-src doit contenir ${attendu}`);
+    const projets = c['frame-src'].filter((x) => /^https:\/\/[a-z0-9-]+\.firebaseapp\.com$/.test(x));
+    assert.equal(projets.length, 1, 'frame-src doit contenir un seul https://<projet>.firebaseapp.com');
+    // Tant que la configuration n'est pas remplie, on ne peut pas comparer.
+    if (configurationComplete) assert.equal(projets[0], `https://${firebaseConfig.authDomain}`);
   });
 
   test('chaque adresse externe écrite dans notre code est autorisée par la CSP', () => {

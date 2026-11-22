@@ -10,10 +10,10 @@
 // (firestore.rules) et la connexion (Firebase Authentication).
 
 export const firebaseConfig = {
-  apiKey: 'REMPLACER_PAR_TA_CLE_API',
-  authDomain: 'REMPLACER_PAR_TON_PROJET.firebaseapp.com',
-  projectId: 'REMPLACER_PAR_TON_PROJET',
-  appId: 'REMPLACER_PAR_TON_APP_ID',
+  apiKey: 'AIzaSyBImIJr_IAVES7PBV_Coa0GO5dUHojrmb8',
+  authDomain: 'etoiles-gagnantes.firebaseapp.com',
+  projectId: 'etoiles-gagnantes',
+  appId: '1:194964362295:web:b86c1d6cc0b56372315bb2',
 };
 
 /** Vrai quand les valeurs d'exemple ont été remplacées. */
